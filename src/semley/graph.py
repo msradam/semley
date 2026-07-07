@@ -75,6 +75,9 @@ def triage(
     """
     if state["plane"] == "control":
         target = _resolve_namespace(target, state["known_namespaces"])
+    elif state["plane"] == "observability":
+        # the observability plane has no host or namespace; it queries the monitor
+        target = "prometheus"
     new = state.update(
         target=target,
         scope=scope,
