@@ -25,16 +25,12 @@ fi
 kubectl config use-context "$CTX" >/dev/null
 ok "kubectl context set to ${CTX}"
 
-step "kubernetes.core collection and client"
+step "kubernetes.core collection"
 if ! uv run ansible-galaxy collection list 2>/dev/null | grep -qi "kubernetes.core"; then
   info "installing kubernetes.core collection..."
   uv run ansible-galaxy collection install kubernetes.core >/dev/null
 fi
-if ! uv run python -c "import kubernetes" 2>/dev/null; then
-  info "installing the kubernetes python client into the venv..."
-  uv pip install kubernetes >/dev/null
-fi
-ok "k8s_info read path ready (collection + client)"
+ok "k8s_info read path ready (the kubernetes client comes from uv sync)"
 
 step "faulted workload in namespace '${NS}'"
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null

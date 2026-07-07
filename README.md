@@ -62,9 +62,9 @@ needs local infrastructure, which the bring-up scripts create if it is missing.
 | the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH) |
 | the `cluster` and `telemetry` demos | Docker, [kind](https://kind.sigs.k8s.io/), and `kubectl` |
 
-Ansible and the collections the reads use (`kubernetes.core`, the `kubernetes` client)
-are installed into the project virtualenv by `uv sync` and the bring-up scripts. You do
-not install them separately.
+Ansible and the `kubernetes` client are installed by `uv sync`. The `kubernetes.core`
+Ansible collection is installed by `scripts/cluster-up.sh` when you bring the cluster
+up. You do not install them separately.
 
 ## Install
 

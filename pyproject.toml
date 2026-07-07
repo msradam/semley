@@ -10,6 +10,7 @@ dependencies = [
     "rocannon==0.3.2",
     "python-dotenv>=1.0",
     "rich>=13.7",
+    "kubernetes>=36.0.2",
 ]
 
 [project.scripts]

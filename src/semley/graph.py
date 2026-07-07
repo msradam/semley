@@ -155,7 +155,12 @@ async def investigate(state: State) -> tuple[dict, State]:
                 }
             )
         else:
-            detail = (payload or {}).get("stderr") if payload else result.detail
+            if payload:
+                detail = payload.get("stderr") or (payload.get("result") or {}).get(
+                    "msg"
+                )
+            else:
+                detail = result.detail
             new = new.append(
                 uninvestigable={
                     "hypothesis": hypothesis,
