@@ -86,6 +86,7 @@ the demo runs end to end from a clean machine:
 ```
 make demo-host      # host-up + inject a fault + investigate + restore the baseline
 make demo-cluster   # kind cluster + a faulted workload + investigate it
+make demo-telemetry # Prometheus on the cluster + investigate a failing scrape target
 make demo-localhost # investigate this control host
 make check          # fast deterministic checks (no model, no infrastructure)
 ```
@@ -96,6 +97,14 @@ make check          # fast deterministic checks (no model, no infrastructure)
 - **cluster** (control plane): `scripts/cluster-up.sh` stands up a kind cluster, the
   `kubernetes.core` collection and client, and a workload stuck in `ImagePullBackOff`
   in the `shop` namespace; `make cluster-down` removes it.
+- **telemetry** (observability plane): `scripts/telemetry-up.sh` deploys Prometheus in
+  the kind cluster, scraping itself and a `checkout` job whose target is down
+  (`up == 0`), and port-forwards it to `localhost:9090`; `make telemetry-down` stops it.
+  Ansible has no read-only module that queries Prometheus (the observability
+  collections are all deploy roles and CRUD management), so this surface reads over
+  `ansible.builtin.uri`, a general HTTP module. The read-only guarantee is therefore
+  enforced in the action phase, which allows only GET or QUERY, rather than by module
+  annotation. This is a deliberate workaround for the missing telemetry facts module.
 - **localhost**: this machine as a local target (no setup). On a non-systemd control
   host the node reads cannot dispatch, so it returns `inconclusive`, not a false
   all-clear.
@@ -110,6 +119,7 @@ session bound to one plane structurally cannot call another plane's modules.
 | `host` | node | service and resource health on a remote systemd host (the primary demo) |
 | `localhost` | node | this machine, as a legitimate local target |
 | `cluster` | control | a Kubernetes workload fault, scoped by namespace |
+| `telemetry` | observability | Prometheus scrape health, read over a GET-only `uri` (see below) |
 
 ## Configuration
 

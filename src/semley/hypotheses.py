@@ -51,6 +51,24 @@ def _control_reads_pods(target: str, scope: str) -> list[Read]:
     return [Read("kubernetes.core.k8s_info", {"kind": "Pod", "namespace": scope})]
 
 
+PROMETHEUS_URL = "http://localhost:9090"
+
+
+def _telemetry_reads(target: str, scope: str) -> list[Read]:
+    # Ansible has no read-only module that queries Prometheus, so this uses uri, a
+    # general HTTP module. The action phase enforces GET/QUERY to keep it a read.
+    return [
+        Read(
+            "ansible.builtin.uri",
+            {
+                "url": f"{PROMETHEUS_URL}/api/v1/query?query=up",
+                "method": "GET",
+                "return_content": True,
+            },
+        )
+    ]
+
+
 SERVICE_DOWN = Hypothesis(
     name="service_down",
     plane="node",
@@ -72,6 +90,14 @@ WORKLOAD_UNHEALTHY = Hypothesis(
     reads=_control_reads_pods,
 )
 
+TARGET_DOWN = Hypothesis(
+    name="target_down",
+    plane="observability",
+    description="a monitored target is failing its scrape (Prometheus up == 0)",
+    reads=_telemetry_reads,
+)
+
 CATALOG: dict[str, Hypothesis] = {
-    h.name: h for h in (SERVICE_DOWN, RESOURCE_EXHAUSTION, WORKLOAD_UNHEALTHY)
+    h.name: h
+    for h in (SERVICE_DOWN, RESOURCE_EXHAUSTION, WORKLOAD_UNHEALTHY, TARGET_DOWN)
 }

@@ -1,5 +1,6 @@
-.PHONY: install check host-up inject heal demo-host demo-localhost \
-        cluster-up cluster-down demo-cluster clean
+.PHONY: install check ci host-up inject heal demo-host demo-localhost \
+        cluster-up cluster-down demo-cluster \
+        telemetry-up telemetry-down demo-telemetry clean
 
 install:
 	uv sync
@@ -41,6 +42,17 @@ cluster-down:
 # Bring the cluster and faulted workload up, then investigate.
 demo-cluster: cluster-up
 	uv run semley --surface cluster
+
+# --- Observability plane: Prometheus scrape health, read over GET-only uri ---
+
+telemetry-up:
+	scripts/telemetry-up.sh
+
+telemetry-down:
+	scripts/telemetry-down.sh
+
+demo-telemetry: telemetry-up
+	uv run semley --surface telemetry
 
 clean:
 	rm -rf .semley .rocannon/playbooks .rocannon/runs

@@ -69,6 +69,13 @@ def banner(surface: Surface) -> None:
     console.print(body)
     if surface.plane == "control":
         _print_namespaces()
+    elif surface.plane == "observability":
+        from .hypotheses import PROMETHEUS_URL
+
+        console.print(
+            f"\n[bold]telemetry[/bold] [dim]{PROMETHEUS_URL} (Prometheus) "
+            "· describe a symptom; reads are GET-only.[/dim]"
+        )
     else:
         _print_hosts(surface)
     console.print(
@@ -84,7 +91,7 @@ def _print_hosts(surface: Surface) -> None:
         table.add_row(name, detail)
     console.print(
         f"\n[bold]inventory[/bold] [dim]{surface.inventory}[/dim] "
-        "[dim]— name one of these hosts in your incident:[/dim]"
+        "[dim]· name one of these hosts in your incident:[/dim]"
     )
     console.print(table)
 
@@ -106,7 +113,7 @@ def _print_namespaces() -> None:
     if names:
         console.print(
             "\n[bold]namespaces[/bold] [dim](kubectl current-context) "
-            "— name one in your incident:[/dim]"
+            "· name one in your incident:[/dim]"
         )
         console.print("  " + "  ".join(f"[cyan]{n}[/cyan]" for n in names))
     else:

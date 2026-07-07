@@ -29,6 +29,19 @@ from .state import INITIAL, new_evidence_id
 
 ITERATION_CAP = 8
 UPSTREAM = "ansible"
+SAFE_HTTP_METHODS = {"GET", "QUERY"}
+
+
+def _is_read_only(module: str, args: dict) -> bool:
+    """A uri read is only allowed if its method is safe (GET or QUERY, RFC 9110).
+
+    Facts modules are inherently read-only; uri is a general HTTP module, so the
+    read-only guarantee for the telemetry surface is enforced here, not by the
+    module. QUERY is the safe read method proposed in the HTTP QUERY draft.
+    """
+    if module.endswith(".uri"):
+        return str(args.get("method", "GET")).upper() in SAFE_HTTP_METHODS
+    return True
 
 
 @action(
@@ -78,7 +91,7 @@ async def investigate(state: State) -> tuple[dict, State]:
     """
     hypothesis = state["current_hypothesis"]
     plane = state["plane"]
-    host = "localhost" if plane == "control" else state["target"]
+    host = "localhost" if plane in ("control", "observability") else state["target"]
     spec = hyp.CATALOG[hypothesis]
 
     new = state
@@ -87,6 +100,17 @@ async def investigate(state: State) -> tuple[dict, State]:
     for read in spec.reads(state["target"], state["scope"]):
         short = read.module.split(".")[-1]
         args = read.args | {"target": host}
+        if not _is_read_only(read.module, args):
+            new = new.append(
+                uninvestigable={
+                    "hypothesis": hypothesis,
+                    "module": short,
+                    "target": host,
+                    "reason": "refused: non-GET/QUERY method on a read-only surface",
+                }
+            )
+            failed.append(short)
+            continue
         result = await safe_upstream(UPSTREAM, UPSTREAM, read.tool, args)
         payload = result.data if result.usable else None
         dispatched = (

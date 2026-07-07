@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from burr.core import State
 
-from semley.graph import build_application
+from semley.graph import _is_read_only, build_application
 from semley.mount import _v_conclude, _v_recall, _v_refute
 from theodosia import ValidationFailed
 
@@ -70,6 +70,16 @@ def test_refute_election_is_evidence_driven():
     assert graph.get_next_node("refute", remain, "investigate").name == "investigate"
     done = State({"hypotheses_remain": False})
     assert graph.get_next_node("refute", done, "investigate").name == "exhausted"
+
+
+def test_uri_reads_are_get_or_query_only():
+    """The telemetry surface uses uri (a general HTTP module); the action phase
+    keeps it read-only by refusing any non-safe method."""
+    assert _is_read_only("ansible.builtin.uri", {})  # defaults to GET
+    assert _is_read_only("ansible.builtin.uri", {"method": "QUERY"})
+    assert not _is_read_only("ansible.builtin.uri", {"method": "POST"})
+    assert not _is_read_only("ansible.builtin.uri", {"method": "delete"})
+    assert _is_read_only("ansible.builtin.setup", {"method": "POST"})  # not uri
 
 
 def test_capped_forces_exhausted():

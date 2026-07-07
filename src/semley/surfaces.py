@@ -18,6 +18,7 @@ NODE_MODULES = [
     "ansible.builtin.setup",
 ]
 CONTROL_MODULES = ["kubernetes.core.k8s_info"]
+OBSERVABILITY_MODULES = ["ansible.builtin.uri"]
 
 
 @dataclass(frozen=True)
@@ -93,4 +94,13 @@ CLUSTER = Surface(
     invariant="read-only: k8s_info is a facts read; execution is local, scoped by namespace.",
 )
 
-SURFACES = {s.name: s for s in (HOST, LOCALHOST, CLUSTER)}
+TELEMETRY = Surface(
+    name="telemetry",
+    plane="observability",
+    hypotheses=["target_down"],
+    modules=OBSERVABILITY_MODULES,
+    inventory=INVENTORY_DIR / "localhost.ini",
+    invariant="read-only by enforcement: uri is HTTP, so the action phase allows only GET/QUERY.",
+)
+
+SURFACES = {s.name: s for s in (HOST, LOCALHOST, CLUSTER, TELEMETRY)}
