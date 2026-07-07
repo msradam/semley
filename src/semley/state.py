@@ -31,15 +31,6 @@ INITIAL: dict[str, Any] = {
 }
 
 
-def evidence_for(state: State, hypothesis: str) -> list[dict[str, Any]]:
-    """Evidence entries gathered for a given hypothesis."""
-    return [e for e in state["evidence"] if e["hypothesis"] == hypothesis]
-
-
-def find_evidence(state: State, evidence_id: str) -> dict[str, Any] | None:
-    return next((e for e in state["evidence"] if e["id"] == evidence_id), None)
-
-
 def new_evidence_id(state: State) -> str:
     return f"e{len(state['evidence']) + 1}"
 

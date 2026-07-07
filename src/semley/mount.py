@@ -28,9 +28,8 @@ def _cited(inputs: dict[str, Any]) -> list[str]:
     return [c] if isinstance(c, str) else list(c)
 
 
-def _check_citations(
-    state: dict[str, Any], inputs: dict[str, Any], *, want_dispatched: bool
-) -> None:
+def _v_verdict(state: dict[str, Any], inputs: dict[str, Any]) -> None:
+    """A conclusion or refutation must cite a read that actually dispatched."""
     index = {e["id"]: e for e in state.get("evidence", [])}
     cited = _cited(inputs)
     if not cited:
@@ -40,20 +39,10 @@ def _check_citations(
     unknown = [c for c in cited if c not in index]
     if unknown:
         raise ValidationFailed(f"cited evidence {unknown} was never gathered")
-    if not any(index[c]["dispatched"] == want_dispatched for c in cited):
+    if not any(index[c]["dispatched"] for c in cited):
         raise ValidationFailed(
             "a verdict must cite a read that actually dispatched to the target"
-            if want_dispatched
-            else "cite a read that did not dispatch"
         )
-
-
-def _v_conclude(state: dict[str, Any], inputs: dict[str, Any]) -> None:
-    _check_citations(state, inputs, want_dispatched=True)
-
-
-def _v_refute(state: dict[str, Any], inputs: dict[str, Any]) -> None:
-    _check_citations(state, inputs, want_dispatched=True)
 
 
 def _v_recall(state: dict[str, Any], inputs: dict[str, Any]) -> None:
@@ -62,7 +51,7 @@ def _v_recall(state: dict[str, Any], inputs: dict[str, Any]) -> None:
         raise ValidationFailed(f"unknown evidence id {eid!r}")
 
 
-VALIDATORS = {"conclude": _v_conclude, "refute": _v_refute, "recall": _v_recall}
+VALIDATORS = {"conclude": _v_verdict, "refute": _v_verdict, "recall": _v_recall}
 
 
 def mount_surface(surface: Surface):

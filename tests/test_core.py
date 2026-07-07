@@ -13,7 +13,7 @@ import pytest
 from burr.core import State
 
 from semley.graph import _is_read_only, build_application
-from semley.mount import _v_conclude, _v_recall, _v_refute
+from semley.mount import _v_recall, _v_verdict
 from theodosia import ValidationFailed
 
 
@@ -29,14 +29,14 @@ def test_verdict_refused_without_a_grounded_citation():
     # No citation, and a citation resting only on a read that failed to dispatch:
     # both are refused. A verdict must rest on a read that actually ran.
     with pytest.raises(ValidationFailed):
-        _v_conclude(_state(_ev("e1")), {})
+        _v_verdict(_state(_ev("e1")), {})
     with pytest.raises(ValidationFailed):
-        _v_conclude(_state(_ev("e1", dispatched=False)), {"cited_evidence": ["e1"]})
+        _v_verdict(_state(_ev("e1", dispatched=False)), {"cited_evidence": ["e1"]})
 
 
 def test_verdict_accepts_a_real_dispatched_citation():
-    _v_conclude(_state(_ev("e1")), {"cited_evidence": ["e1"]})  # conclude: no raise
-    _v_refute(_state(_ev("e1")), {"cited_evidence": ["e1"]})  # refute: same grounding
+    _v_verdict(_state(_ev("e1")), {"cited_evidence": ["e1"]})  # conclude: no raise
+    _v_verdict(_state(_ev("e1")), {"cited_evidence": ["e1"]})  # refute: same grounding
 
 
 def test_recall_refuses_unknown_id():
