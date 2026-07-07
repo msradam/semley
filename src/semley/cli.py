@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         "--surface",
         required=True,
         choices=sorted(SURFACES),
-        help="the governed plane (sets the module set and hypotheses)",
+        help="the governed plane and its read-only module set (the action space)",
     )
     parser.add_argument(
         "-i",

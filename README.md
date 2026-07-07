@@ -45,19 +45,20 @@ read is a fixed GET template the model cannot alter rather than a read-annotated
 
 Theodosia is the only MCP server the model connects to, and it exposes exactly one
 tool, `step`. Rocannon is not a second server the model picks tools from: it is mounted
-in-process as an upstream that the graph's actions call. So the reflected Ansible
-modules are never tools in the model's view. Each action phase names the modules it
-dispatches (a hypothesis's reads); the model chooses only which governed action to
-take. This is why the model cannot name a module: it has no module list to name from,
-and widening the action space means adding modules to the action phases, not exposing a
-larger tool menu.
+in-process as an upstream that the graph's actions call. The model's action space is the
+surface's read-only module set: it calls `step(read, {module, args})`, choosing the
+module and filling in the arguments itself, and the mount refuses any module outside the
+set. So the model drives the reads, but only within the modules the surface reflects.
+Widening the action space means adding modules to a surface, not exposing a larger tool
+menu.
 
-The investigation is a hypothesis loop: `triage` fixes the target and scope and
-elects the first hypothesis, `investigate` gathers evidence for it, and the model
-then `conclude`s (confirmed), `refute`s (rule out, re-hypothesize), or `gather`s more.
-The loop terminates at `exhausted` when the hypothesis space is used up, reporting
-what was ruled out rather than inventing a fault. A read that cannot dispatch to the
-target is recorded uninvestigable, never as a refutation.
+The investigation is a short loop the model drives: `triage` fixes the target and states
+the model's own hypothesis; `read` gathers evidence one module at a time, the model
+choosing what to look at next from what it has already seen; and the model finishes with
+`conclude` (a grounded verdict, citing the reads it relied on) or `inconclusive` (no
+fault confirmed). A read that cannot dispatch is recorded uninvestigable, never a fault,
+and an investigation that runs out of leads ends honestly rather than inventing one. The
+loop is bounded by an iteration cap.
 
 ## Prerequisites
 
@@ -205,9 +206,10 @@ neither is the model's.
 
 ## Limitations
 
-The hypothesis set is bounded and pre-enumerated; faults outside it are out of scope by
-design, and the loop terminates honestly at `exhausted` rather than guessing. A session
-is bound to one inventory and one tool package at launch. Recorded playbooks are audit
+The action space is the surface's read-only module set: the model reads and diagnoses
+freely within it, but a fault that needs a module the surface does not reflect (or a
+write) is out of scope by design, and the loop ends at `inconclusive` rather than
+guessing. A session is bound to one surface at launch. Recorded playbooks are audit
 records, not directly re-runnable: credentials are redacted and must be restored to
 replay. The host surface is the most reliable; the cluster surface works but has more
 moving parts (a kind cluster and the kubernetes client), so it needs `make cluster-up`

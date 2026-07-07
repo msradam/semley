@@ -28,8 +28,19 @@ def _cited(inputs: dict[str, Any]) -> list[str]:
     return [c] if isinstance(c, str) else list(c)
 
 
+def _v_read(state: dict[str, Any], inputs: dict[str, Any]) -> None:
+    """A read may only call a module in the surface's set. This is the action-space
+    boundary: the model picks the module and args, but not the set it picks from."""
+    module = inputs.get("module")
+    allowed = state.get("modules", [])
+    if module not in allowed:
+        raise ValidationFailed(
+            f"module {module!r} is not on this surface; choose from {allowed}"
+        )
+
+
 def _v_verdict(state: dict[str, Any], inputs: dict[str, Any]) -> None:
-    """A conclusion or refutation must cite a read that actually dispatched."""
+    """A conclusion must cite a read that actually dispatched."""
     index = {e["id"]: e for e in state.get("evidence", [])}
     cited = _cited(inputs)
     if not cited:
@@ -51,7 +62,7 @@ def _v_recall(state: dict[str, Any], inputs: dict[str, Any]) -> None:
         raise ValidationFailed(f"unknown evidence id {eid!r}")
 
 
-VALIDATORS = {"conclude": _v_verdict, "refute": _v_verdict, "recall": _v_recall}
+VALIDATORS = {"read": _v_read, "conclude": _v_verdict, "recall": _v_recall}
 
 
 def mount_surface(surface: Surface):
@@ -67,7 +78,7 @@ def mount_surface(surface: Surface):
 
     def factory():
         return (
-            build_application(surface.plane, surface.hypotheses, namespaces)
+            build_application(surface.plane, surface.modules, namespaces)
             .with_tracker(trail)
             .with_state_persister(persister)
             .with_identifiers(partition_key=surface.name)
@@ -110,4 +121,4 @@ def load_incident_history(
         _as_dict(persister.load(partition_key, aid))
         for aid in reversed(persister.list_app_ids(partition_key))
     ]
-    return [s for s in states if s and s.get("phase") in {"concluded", "exhausted"}]
+    return [s for s in states if s and s.get("phase") == "concluded"]

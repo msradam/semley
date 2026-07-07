@@ -16,10 +16,9 @@ INITIAL: dict[str, Any] = {
     "target": "",
     "scope": "",
     "plane": "",
+    "modules": [],
+    "hypothesis": "",
     "known_namespaces": [],
-    "hypotheses": [],
-    "current_hypothesis": None,
-    "ruled_out": [],
     "uninvestigable": [],
     "evidence": [],
     "citations": [],
@@ -28,7 +27,6 @@ INITIAL: dict[str, Any] = {
     "iteration": 0,
     "capped": False,
     "has_evidence": False,
-    "hypotheses_remain": True,
 }
 
 

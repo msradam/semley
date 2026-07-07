@@ -1,9 +1,10 @@
 """Drive the mounted host surface directly, no model, against the real target.
 
-Verifies governance, real Ansible reads through rocannon, recall, and refusals.
-Standing in for the model, this script reads the gathered facts and supplies its own
-finding and citations; the mount checks the citations, never the finding. Run with the
-fault injected (scripts/inject-fault.sh).
+Verifies governance: the model-driven `read` (module + args) through rocannon, the
+action-space boundary, grounded conclusions, recall, and refusals. Standing in for the
+model, this script chooses which modules to read, then supplies its own finding and
+citations; the mount checks the module and the citations, never the finding. Run with
+the fault injected (scripts/inject-fault.sh).
 """
 
 from __future__ import annotations
@@ -34,26 +35,36 @@ async def main():
         print("mounted tools:", tools)
 
         r = await step(
-            client, "triage", target="web1", scope="web service not responding"
+            client,
+            "triage",
+            target="web1",
+            scope="web service not responding",
+            hypothesis="the web service unit has stopped",
         )
-        print("triage ->", r["result"]["current_hypothesis"])
+        print("triage ->", r["result"]["target"], "| modules:", r["result"]["modules"])
 
-        r = await step(client, "investigate")
-        gathered = r["result"]["gathered"]
-        ids = [g["id"] for g in gathered]
-        print("investigate -> reads", [f"{g['id']}:{g['module']}" for g in gathered])
+        # The model chooses which module to read and its arguments.
+        ids = []
+        for module in (
+            "ansible.builtin.service_facts",
+            "ansible.builtin.listen_ports_facts",
+        ):
+            r = await step(client, "read", module=module, args={})
+            g = r["result"]["gathered"]
+            ids += [x["id"] for x in g]
+            print("read ->", [f"{x['id']}:{x['module']}" for x in g])
 
-        # Governance: an unreachable action is refused, not executed.
-        bad = await step(client, "triage", target="web1")
-        assert "error" in bad, bad
-        print("refuse re-triage ->", bad["error"])
+        # Action-space boundary: a module off the surface is refused, not executed.
+        bad_mod = await step(client, "read", module="ansible.builtin.command", args={})
+        assert "error" in bad_mod, bad_mod
+        print("refuse read off-surface ->", bad_mod["error"])
 
         # Grounding: a verdict with no citation is refused before it is written.
         no_cite = await step(client, "conclude", finding="the service is down")
         assert "error" in no_cite, no_cite
         print("refuse conclude without citation ->", no_cite["error"])
 
-        # A grounded conclusion (the script reads the facts and decides) is written.
+        # A grounded conclusion (the script read the facts and decided) is written.
         r = await step(
             client,
             "conclude",

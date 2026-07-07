@@ -1,7 +1,8 @@
-"""Surfaces: per-plane bindings of an inventory, a curated module set, and hypotheses.
+"""Surfaces: per-plane bindings of an inventory and a read-only module set.
 
-The module sets are disjoint across planes, so a session bound to one surface
-structurally cannot call another plane's modules.
+The module set is the action space: the model may read any of these modules and fill
+in their arguments, but nothing else. The sets are disjoint across planes, so a session
+bound to one surface structurally cannot call another plane's modules.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 INVENTORY_DIR = REPO / "inventory"
+PROMETHEUS_URL = "http://localhost:9090"
 
 NODE_MODULES = [
     "ansible.builtin.service_facts",
@@ -26,10 +28,10 @@ OBSERVABILITY_MODULES = ["ansible.builtin.uri"]
 class Surface:
     name: str
     plane: str
-    hypotheses: list[str]
     modules: list[str]
     inventory: Path
     invariant: str
+    guidance: str = ""
     scopes: list[str] = field(default_factory=list)
 
     def targets(self) -> list[tuple[str, str]]:
@@ -87,37 +89,44 @@ def _parse_ini_hosts(path: Path) -> list[tuple[str, str]]:
 HOST = Surface(
     name="host",
     plane="node",
-    hypotheses=["service_down", "resource_exhaustion"],
     modules=NODE_MODULES,
     inventory=INVENTORY_DIR / "hosts.ini",
-    invariant="read-only: only read-annotated modules are reachable; the model supplies no module.",
+    invariant="read-only: every module here is a facts read; the reads run on the target host.",
 )
 
 LOCALHOST = Surface(
     name="localhost",
     plane="node",
-    hypotheses=["service_down", "resource_exhaustion"],
     modules=NODE_MODULES,
     inventory=INVENTORY_DIR / "localhost.ini",
-    invariant="read-only: only read-annotated modules are reachable; the model supplies no module.",
+    invariant="read-only: every module here is a facts read; the reads run on this machine.",
 )
 
 CLUSTER = Surface(
     name="cluster",
     plane="control",
-    hypotheses=["workload_unhealthy", "node_pressure"],
     modules=CONTROL_MODULES,
     inventory=INVENTORY_DIR / "localhost.ini",
     invariant="read-only: k8s_info is a facts read; execution is local, scoped by namespace.",
+    guidance=(
+        "The target is a namespace. Read with kubernetes.core.k8s_info, passing kind and "
+        "namespace (for example {kind: Pod, namespace: shop}); Event and Deployment give "
+        "the reason and the desired spec, Node (no namespace) gives cluster pressure."
+    ),
 )
 
 TELEMETRY = Surface(
     name="telemetry",
     plane="observability",
-    hypotheses=["target_down"],
     modules=OBSERVABILITY_MODULES,
     inventory=INVENTORY_DIR / "localhost.ini",
-    invariant="read-only by construction: the uri read is a fixed GET template; the model sets no module or method.",
+    invariant="read-only by enforcement: uri is HTTP, so the action phase allows only GET or QUERY.",
+    guidance=(
+        f"Query Prometheus at {PROMETHEUS_URL} with ansible.builtin.uri, method GET, "
+        "return_content true, for example "
+        f"{{url: '{PROMETHEUS_URL}/api/v1/query?query=up', method: GET, return_content: true}}. "
+        "Write whatever PromQL the investigation needs."
+    ),
 )
 
 SURFACES = {s.name: s for s in (HOST, LOCALHOST, CLUSTER, TELEMETRY)}

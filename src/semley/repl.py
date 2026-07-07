@@ -70,15 +70,12 @@ def banner(surface: Surface) -> None:
     console.print(body)
     if surface.plane == "control":
         _print_namespaces()
-    elif surface.plane == "observability":
-        from .hypotheses import PROMETHEUS_URL
-
-        console.print(
-            f"\n[bold]telemetry[/bold] [dim]{PROMETHEUS_URL} (Prometheus) "
-            "· describe a symptom; reads are GET-only.[/dim]"
-        )
     else:
         _print_hosts(surface)
+    mods = "  ".join(m.split(".")[-1] for m in surface.modules)
+    console.print(
+        f"\n[bold]action space[/bold] [dim](read-only):[/dim] [cyan]{mods}[/cyan]"
+    )
     console.print(
         "[dim]describe an incident · /help for commands · /quit to exit.[/dim]\n"
     )
@@ -172,10 +169,6 @@ def _render_step_result(obj: Any) -> None:
         )
     if result.get("conclusion"):
         console.print(f"    [bold]conclusion:[/bold] {result['conclusion']}")
-    if result.get("ruled_out"):
-        console.print(
-            f"    [dim]ruled out {result['ruled_out']}: {result.get('finding', '')}[/dim]"
-        )
     if "evidence" in result and isinstance(result["evidence"], dict):
         console.print(
             f"    [green]recall[/green] [dim]{result['evidence'].get('module')} "
@@ -247,7 +240,7 @@ def _show_conclusion(state: dict[str, Any]) -> None:
 
 async def run_repl(surface: Surface) -> None:
     server, upstream, persister = mount_surface(surface)
-    agent = build_agent(server)
+    agent = build_agent(server, surface)
     banner(surface)
 
     history: list | None = None
@@ -290,7 +283,7 @@ async def run_repl(surface: Surface) -> None:
         result, state = await _stream_turn(agent, prompt, history)
         history = result.all_messages()
 
-        if state and state.get("phase") in {"concluded", "exhausted"}:
+        if state and state.get("phase") == "concluded":
             _show_conclusion(state)
             console.print(
                 "[dim]/playbook saves the recorded Ansible playbook · "
