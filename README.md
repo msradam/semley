@@ -7,21 +7,20 @@
           ┛
 ```
 
-Semley is an autonomous SRE investigation agent. A language model drives an
-investigation; a state machine governs what is allowed; every read runs through a
-typed, auditable tool surface; and the model cannot reach past the action boundary
-into the tool layer. The thesis is "entrust, don't trust": give the model agency over
-where an investigation goes, and keep authority over what it may do, and verification
-of what it concludes, outside the model.
+Semley is an autonomous SRE investigation agent. A language model drives the
+investigation; a state machine governs what it may do; and every read runs through a
+typed, auditable tool surface the model cannot reach past. The thesis is "entrust,
+don't trust": the model decides where the investigation goes, while authority over its
+actions and verification of its conclusions stay outside it.
 
 Control and verification live outside the model:
 
 - A Burr state machine is the investigation graph. The model advances it only by
   calling one governed `step` tool with an action name and inputs. An unreachable
   action is refused with the valid next actions, so a wrong move is recoverable.
-- Conclusions are verified externally. `conclude` and `refute` are grounded against
-  the real evidence before they are written: a verdict the facts do not support is
-  refused. The faulty entity is discovered from evidence, not named in the code.
+- The mount grounds every `conclude` and `refute`: it checks that the verdict cites a
+  read that actually ran, and refuses it otherwise. The failing entity comes from the
+  evidence, not from the code.
 - The durable record is a persisted state store, not the transcript. Cross-incident
   memory is a compact findings digest rendered from that store, so context stays flat
   across incidents instead of re-sending every prior investigation's raw evidence.
