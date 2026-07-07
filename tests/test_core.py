@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import pytest
 from burr.core import State
+from theodosia import ValidationFailed
 
 from semley.graph import _is_read_only, _resolve_namespace, build_application
 from semley.mount import _v_read, _v_recall, _v_verdict
 from semley.surfaces import CONTROL_MODULES, NODE_MODULES
-from theodosia import ValidationFailed
 
 
 def _state(*evidence, modules=NODE_MODULES):

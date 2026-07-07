@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import Any
 
 from burr.core import (
-    Application,
     ApplicationBuilder,
     State,
     action,
@@ -27,6 +26,22 @@ from .state import INITIAL, new_evidence_id
 ITERATION_CAP = 12
 UPSTREAM = "ansible"
 SAFE_HTTP_METHODS = {"GET", "QUERY"}
+
+
+async def _run_module(module: str, call_args: dict) -> tuple[Any | None, str | None]:
+    """Dispatch one module through rocannon. Return (facts, None) if it produced a
+    result, else (None, reason) for the uninvestigable record."""
+    result = await safe_upstream(
+        UPSTREAM, UPSTREAM, module.replace(".", "_"), call_args
+    )
+    payload = result.data if result.usable else None
+    if payload and payload.get("status") == "successful" and payload.get("result"):
+        return payload["result"], None
+    if payload:
+        detail = payload.get("stderr") or (payload.get("result") or {}).get("msg")
+    else:
+        detail = result.detail
+    return None, (detail or "read did not dispatch").strip()[:200]
 
 
 def _is_read_only(module: str, args: dict) -> bool:
@@ -96,38 +111,21 @@ async def read(
             args["namespace"], state["known_namespaces"]
         )
     short = module.split(".")[-1]
-    call_args = args | {"target": host}
+    entry = {"module": short, "args": args, "target": host}
 
     new = state
     gathered: list[dict[str, Any]] = []
     failed: list[str] = []
-    if not _is_read_only(module, call_args):
-        new = new.append(
-            uninvestigable={
-                "module": short,
-                "args": args,
-                "target": host,
-                "reason": "refused: non-GET/QUERY method on a read-only surface",
-            }
-        )
+    if not _is_read_only(module, args):
+        reason = "refused: non-GET/QUERY method on a read-only surface"
+        new = new.append(uninvestigable={**entry, "reason": reason})
         failed.append(short)
     else:
-        result = await safe_upstream(
-            UPSTREAM, UPSTREAM, module.replace(".", "_"), call_args
-        )
-        payload = result.data if result.usable else None
-        if payload and payload.get("status") == "successful" and payload.get("result"):
+        facts, reason = await _run_module(module, args | {"target": host})
+        if facts is not None:
             eid = new_evidence_id(new)
-            facts = payload["result"]
             new = new.append(
-                evidence={
-                    "id": eid,
-                    "module": short,
-                    "args": args,
-                    "target": host,
-                    "dispatched": True,
-                    "facts": facts,
-                }
+                evidence={"id": eid, **entry, "dispatched": True, "facts": facts}
             )
             gathered.append(
                 {
@@ -139,20 +137,7 @@ async def read(
                 }
             )
         else:
-            if payload:
-                detail = payload.get("stderr") or (payload.get("result") or {}).get(
-                    "msg"
-                )
-            else:
-                detail = result.detail
-            new = new.append(
-                uninvestigable={
-                    "module": short,
-                    "args": args,
-                    "target": host,
-                    "reason": (detail or "read did not dispatch").strip()[:200],
-                }
-            )
+            new = new.append(uninvestigable={**entry, "reason": reason})
             failed.append(short)
 
     iteration = state["iteration"] + 1
@@ -203,7 +188,7 @@ def recall(state: State, evidence_id: str) -> tuple[dict, State]:
 
 def build_application(
     plane: str, modules: list[str], namespaces: list[str] | None = None
-) -> Application:
+) -> ApplicationBuilder:
     """Assemble the investigation graph for one surface's read-only module set."""
     b = (
         ApplicationBuilder()

@@ -93,7 +93,7 @@ def mount_surface(surface: Surface):
     return server, upstream, persister
 
 
-def _as_dict(record: dict[str, Any] | None) -> dict[str, Any] | None:
+def _as_dict(record: Any) -> dict[str, Any] | None:
     if record is None:
         return None
     state = record["state"]
