@@ -50,6 +50,9 @@ quick check:
 | `make demo-localhost` | investigate this machine | nothing extra |
 
 `make cluster-down` and `make telemetry-down` tear the cluster pieces back down.
+`make inject` and `make heal` toggle the host fault on its own, for driving the agent
+separately from the bundled demo. After a run, `uv run theodosia verify --home
+.semley/trail` recomputes the session's hash chain.
 
 ## Tests and checks
 

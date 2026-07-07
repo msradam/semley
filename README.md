@@ -69,8 +69,10 @@ needs local infrastructure, which the bring-up scripts create if it is missing.
 |---|---|
 | `make check` (fast deterministic tests) | [uv](https://docs.astral.sh/uv/) and Python 3.12+ |
 | the agent on any surface | the above, plus an API key for an OpenAI-compatible endpoint |
-| the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH) |
-| the `cluster` and `telemetry` demos | Docker, [kind](https://kind.sigs.k8s.io/), and `kubectl` |
+| the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH); macOS only |
+| the `cluster` and `telemetry` demos | a running Docker engine (OrbStack provides one), [kind](https://kind.sigs.k8s.io/), and `kubectl` |
+
+On Linux, skip the host demo and use the cluster, telemetry, or localhost surfaces.
 
 Ansible and the `kubernetes` client are installed by `uv sync`. The `kubernetes.core`
 Ansible collection is installed by `scripts/cluster-up.sh` when you bring the cluster
@@ -150,26 +152,28 @@ make demo-host      # host-up + inject a fault + investigate + restore the basel
 make demo-cluster   # kind cluster + a faulted workload + investigate it
 make demo-telemetry # Prometheus on the cluster + investigate a failing scrape target
 make demo-localhost # investigate this control host
+make inject         # stop nginx on web1 (run the fault and the agent separately)
+make heal           # restore nginx on web1
 make check          # fast deterministic checks (no model, no infrastructure)
 ```
 
 - **host** (primary, reliable): `scripts/host-up.sh` ensures an OrbStack systemd
-  machine (`web1`) running nginx; `inject-fault.sh` stops it (enabled-but-stopped),
-  `heal.sh` restores it. Inventory: `inventory/hosts.ini`.
+  machine (`web1`) running nginx; `make inject` stops it (enabled-but-stopped),
+  `make heal` restores it. Inventory: `inventory/hosts.ini`.
 - **cluster** (control plane): `scripts/cluster-up.sh` stands up a kind cluster, the
-  `kubernetes.core` collection and client, and a workload stuck in `ImagePullBackOff`
-  in the `shop` namespace; `make cluster-down` removes it.
+  `kubernetes.core` collection, and a workload stuck in `ImagePullBackOff` in the
+  `shop` namespace; `make cluster-down` removes it. The script switches your kubectl
+  context to `kind-semley`.
 - **telemetry** (observability plane): `scripts/telemetry-up.sh` deploys Prometheus in
   the kind cluster, scraping itself and a `checkout` job whose target is down
-  (`up == 0`), and port-forwards it to `localhost:9090`; `make telemetry-down` stops it.
-  Ansible has no read-only module that queries Prometheus (the observability
-  collections are all deploy roles and CRUD management), so this surface reads over
-  `ansible.builtin.uri`, a general HTTP module. Because `uri` is not read-annotated,
-  the boundary here is curation, not annotation: the read is a fixed GET template the
-  model cannot alter (it supplies no module and no method), and the action phase also
-  rejects any non-GET/QUERY method as defense-in-depth. This is a deliberate workaround
-  for the missing telemetry facts module. The surface detects a failing scrape target
-  (`up == 0`); deeper root-cause diagnosis and cross-plane correlation are out of scope.
+  (`up == 0`), and port-forwards it to `localhost:9090`; the forward runs in the
+  background, so if it dies (laptop sleep, cluster restart) re-run `make telemetry-up`.
+  `make telemetry-down` stops it. Ansible has no read-only module that queries
+  Prometheus (the observability collections are all deploy roles and CRUD management),
+  so this surface reads over `ansible.builtin.uri`, a general HTTP module: the model
+  writes its own PromQL, and the action phase keeps the read a read by rejecting any
+  method other than GET or QUERY. This is a deliberate workaround for the missing
+  telemetry facts module.
 - **localhost**: this machine as a local target (no setup). On a non-systemd control
   host the node reads cannot dispatch, so it returns `inconclusive`, not a false
   all-clear.
@@ -197,12 +201,18 @@ session bound to one plane structurally cannot call another plane's modules.
 
 ## Auditability
 
-Every investigation produces two artifacts. The governed trail (under `.semley/`) is a
-hash-chained log of each transition and refusal: what happened, provably. The recorded
-playbook (under `.rocannon/playbooks/`) is a deterministic transcription of the real
-Ansible calls, tasks matching the calls in order, credentials redacted at recording:
-what was done, faithfully. The trail and the state persister are separate stores, and
-neither is the model's.
+Every investigation writes a governed trail (under `.semley/trail`): a hash-chained log
+of each transition and refusal, what happened, provably. Verify a session's chain with:
+
+```
+uv run theodosia verify --home .semley/trail
+```
+
+This checks the most recent session; pass `-p <surface>` for a specific one. Typing
+`/playbook` after a conclusion writes the second artifact: the recorded playbook (under
+`.rocannon/playbooks/`), a deterministic transcription of the real Ansible calls, tasks
+matching the calls in order, credentials redacted at recording. The trail and the state
+persister are separate stores, and neither is the model's.
 
 ## Limitations
 
