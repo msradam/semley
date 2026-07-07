@@ -18,7 +18,7 @@ from .mount import load_prior_state, mount_surface
 from .surfaces import SURFACES, Surface
 
 ALLOWED_TOOLS = {"step", "reset_session"}
-DEFAULT_MODEL = "anthropic/claude-sonnet-5"
+DEFAULT_MODEL = "gpt-5.4"
 
 INSTRUCTIONS = """\
 You are Semley, an autonomous SRE investigation agent. You diagnose a fault on a
@@ -60,11 +60,11 @@ plain-English diagnosis citing the evidence.
 
 
 def build_model() -> OpenAIChatModel:
+    """Any OpenAI-compatible endpoint. OPENAI_API_KEY is required; OPENAI_BASE_URL
+    (read by the OpenAI client) points at a non-OpenAI vendor; SEMLEY_MODEL picks
+    the model. Defaults target OpenAI directly."""
     load_dotenv()
-    provider = OpenAIProvider(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=os.environ["OPENAI_API_KEY"],
-    )
+    provider = OpenAIProvider(api_key=os.environ["OPENAI_API_KEY"])
     return OpenAIChatModel(
         os.environ.get("SEMLEY_MODEL", DEFAULT_MODEL), provider=provider
     )

@@ -51,22 +51,23 @@ target is recorded uninvestigable, never as a refutation.
 
 ## Install
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an OpenRouter API key.
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an API key for any
+OpenAI-compatible endpoint.
 
 ```
 uv sync
 ```
 
-Put the key and model in a `.env` file:
+Put the key in a `.env` file:
 
 ```
-OPENAI_API_KEY=sk-or-...          # an OpenRouter key
-SEMLEY_MODEL=anthropic/claude-sonnet-5
+OPENAI_API_KEY=sk-...             # an OpenAI key; the default model is gpt-5.4
 ```
 
-The model is reached through OpenRouter's OpenAI-compatible endpoint. `SEMLEY_MODEL`
-selects any OpenRouter model slug; the default is a mid-tier agentic model suited to
-reliable tool use.
+The agent is vendor-agnostic: it talks the OpenAI chat-completions protocol, so any
+compatible endpoint works. `OPENAI_API_KEY` is the only required variable. To use a
+different vendor, set `OPENAI_BASE_URL` (for example `https://openrouter.ai/api/v1`)
+and `SEMLEY_MODEL` (for example `anthropic/claude-sonnet-5`).
 
 ## Usage
 
@@ -123,8 +124,10 @@ session bound to one plane structurally cannot call another plane's modules.
 
 ## Configuration
 
-- `--surface {host,localhost,cluster}` selects the governed surface (required).
-- `SEMLEY_MODEL` selects the OpenRouter model slug.
+- `--surface {host,localhost,cluster,telemetry}` selects the governed surface (required).
+- `OPENAI_API_KEY` (required) authenticates the model endpoint.
+- `OPENAI_BASE_URL` (optional) points at a non-OpenAI vendor; defaults to OpenAI.
+- `SEMLEY_MODEL` (optional) selects the model slug; defaults to `gpt-5.4`.
 - `THEODOSIA_LEDGER_KEY` (hex) switches the audit ledger from unkeyed SHA-256 to an
   HMAC-keyed chain.
 
