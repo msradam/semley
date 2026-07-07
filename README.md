@@ -200,6 +200,14 @@ replay. The host surface is the most reliable; the cluster surface works but has
 moving parts (a kind cluster and the kubernetes client), so it needs `make cluster-up`
 first.
 
+## Naming
+
+Semley, Rocannon, and the ansible all come from Ursula K. Le Guin's *Rocannon's World*
+(1966). The ansible, her name for a device that communicates instantly across any
+distance, gave Red Hat's Ansible its name. Rocannon is the novel's protagonist, and the
+library that reflects Ansible modules into tools takes his name. Semley is the
+noblewoman whose journey opens the book.
+
 ## License
 
 MIT
