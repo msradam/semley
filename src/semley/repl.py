@@ -32,18 +32,33 @@ _LOGO = r"""      ┓
           ┛"""
 
 _OUTCOME_STYLE = {"confirmed": "red", "all_clear": "green", "inconclusive": "yellow"}
+_COMMANDS = ["/playbook", "/help", "/quit", "/exit"]
+
+
+def _setup_completion() -> None:
+    """Tab-completion for the REPL slash commands."""
+    try:
+        import readline
+    except ImportError:
+        return
+
+    def completer(text: str, state: int):
+        matches = [c for c in _COMMANDS if c.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    readline.set_completer(completer)
+    bind = (
+        "bind ^I rl_complete"
+        if "libedit" in (readline.__doc__ or "")
+        else "tab: complete"
+    )
+    readline.parse_and_bind(bind)
 
 
 def banner(surface: Surface) -> None:
     keyed = (
         "HMAC-keyed" if os.environ.get("THEODOSIA_LEDGER_KEY") else "unkeyed SHA-256"
     )
-    table = Table(show_header=True, header_style="bold cyan", box=None, pad_edge=False)
-    table.add_column("target" if surface.plane == "node" else "namespace", style="bold")
-    table.add_column("detail", style="dim")
-    for name, detail in surface.targets():
-        table.add_row(name, detail)
-
     body = (
         f"[bold]surface[/bold] {surface.name}  [dim]/[/dim]  [bold]plane[/bold] {surface.plane}\n"
         f"[green]{surface.invariant}[/green]\n"
@@ -52,8 +67,52 @@ def banner(surface: Surface) -> None:
     console.print(f"[bold cyan]{_LOGO}[/bold cyan]")
     console.print("[dim]autonomous SRE investigation agent[/dim]\n")
     console.print(body)
+    if surface.plane == "control":
+        _print_namespaces()
+    else:
+        _print_hosts(surface)
+    console.print(
+        "[dim]describe an incident · /help for commands · /quit to exit.[/dim]\n"
+    )
+
+
+def _print_hosts(surface: Surface) -> None:
+    table = Table(show_header=True, header_style="bold cyan", box=None, pad_edge=False)
+    table.add_column("host", style="bold")
+    table.add_column("connection", style="dim")
+    for name, detail in surface.targets():
+        table.add_row(name, detail)
+    console.print(
+        f"\n[bold]inventory[/bold] [dim]{surface.inventory}[/dim] "
+        "[dim]— name one of these hosts in your incident:[/dim]"
+    )
     console.print(table)
-    console.print("[dim]describe an incident, or Ctrl-D to exit.[/dim]\n")
+
+
+def _print_namespaces() -> None:
+    import subprocess
+
+    names: list[str] = []
+    try:
+        out = subprocess.run(
+            ["kubectl", "get", "namespaces", "-o", "name"],
+            capture_output=True,
+            text=True,
+            timeout=6,
+        )
+        names = [ln.split("/", 1)[-1] for ln in out.stdout.splitlines() if ln.strip()]
+    except Exception:
+        pass
+    if names:
+        console.print(
+            "\n[bold]namespaces[/bold] [dim](kubectl current-context) "
+            "— name one in your incident:[/dim]"
+        )
+        console.print("  " + "  ".join(f"[cyan]{n}[/cyan]" for n in names))
+    else:
+        console.print(
+            "\n[dim]namespaces: could not list; name one in your incident (e.g. 'shop').[/dim]"
+        )
 
 
 def _content_to_obj(content: Any) -> Any:
@@ -100,11 +159,21 @@ def _render_step_result(obj: Any) -> None:
         return
     result = obj.get("result") or {}
     for read in result.get("gathered", []):
-        rid = read.get("id") if isinstance(read, dict) else read
-        mod = read.get("module") if isinstance(read, dict) else ""
-        console.print(f"    [green]read[/green] [dim]{rid}: {mod} (ansible)[/dim]")
+        if not isinstance(read, dict):
+            console.print(f"    [green]read[/green] [dim]{read}[/dim]")
+            continue
+        args = read.get("args") or {}
+        argstr = " ".join(f"{k}={v}" for k, v in args.items())
+        console.print(
+            f"    [green]read[/green] [cyan]{read.get('id')}[/cyan] "
+            f"[bold]{read.get('module')}[/bold]"
+            + (f" [magenta]{argstr}[/magenta]" if argstr else "")
+            + f" [dim]on {read.get('target')}[/dim]"
+        )
     for miss in result.get("uninvestigable", []):
-        console.print(f"    [yellow]uninvestigable[/yellow] [dim]{miss}[/dim]")
+        console.print(
+            f"    [yellow]uninvestigable[/yellow] [dim]{miss} (read did not dispatch)[/dim]"
+        )
     if result.get("conclusion"):
         console.print(f"    [bold]conclusion:[/bold] {result['conclusion']}")
     if result.get("ruled_out"):
@@ -187,16 +256,26 @@ async def run_repl(surface: Surface) -> None:
 
     history: list | None = None
     digest = render_digest(_digest_incidents(persister, surface.name))
+    _setup_completion()
 
     while True:
         try:
-            user = console.input("[bold cyan]incident[/bold cyan] ")
-        except EOFError:
-            console.print("\n[dim]goodbye.[/dim]")
+            user = console.input("[bold cyan]semley[/bold cyan] [dim]›[/dim] ").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[dim]bye.[/dim]")
             return
-        if not user.strip():
+        if not user:
             continue
-        if user.strip() == "/playbook":
+        if user in {"/quit", "/exit", "quit", "exit", ":q"}:
+            console.print("[dim]bye.[/dim]")
+            return
+        if user in {"/help", "help", "?"}:
+            console.print(
+                "[dim]describe an incident in plain language to investigate it · "
+                "/playbook saves the recorded Ansible playbook · /quit exits[/dim]\n"
+            )
+            continue
+        if user == "/playbook":
             report = await commit_playbook(upstream, f"{surface.name}_investigation")
             if report.get("ok"):
                 console.print(

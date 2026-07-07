@@ -107,7 +107,15 @@ async def investigate(state: State) -> tuple[dict, State]:
                     "facts": facts,
                 }
             )
-            gathered.append({"id": eid, "module": short, "facts": facts})
+            gathered.append(
+                {
+                    "id": eid,
+                    "module": read.module,
+                    "args": dict(read.args),
+                    "target": host,
+                    "facts": facts,
+                }
+            )
         else:
             detail = (payload or {}).get("stderr") if payload else result.detail
             new = new.append(

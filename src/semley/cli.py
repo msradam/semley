@@ -6,6 +6,8 @@ import argparse
 import asyncio
 import logging
 import sys
+from dataclasses import replace
+from pathlib import Path
 
 from .repl import console, run_repl
 from .surfaces import SURFACES
@@ -35,12 +37,20 @@ def main(argv: list[str] | None = None) -> int:
         "--surface",
         required=True,
         choices=sorted(SURFACES),
-        help="the governed surface to investigate through",
+        help="the governed plane (sets the module set and hypotheses)",
+    )
+    parser.add_argument(
+        "-i",
+        "--inventory",
+        type=Path,
+        help="Ansible inventory to bind (defaults to the surface's own)",
     )
     args = parser.parse_args(argv)
 
     _quiet_libraries()
     surface = SURFACES[args.surface]
+    if args.inventory:
+        surface = replace(surface, inventory=args.inventory)
     if not surface.inventory.exists():
         console.print(f"[red]inventory not found:[/red] {surface.inventory}")
         return 1
