@@ -1,0 +1,75 @@
+╭────────────────────────────────────╮
+│ S E M L E Y                        │
+│ autonomous SRE investigation agent │
+╰────────────────────────────────────╯
+surface host  /  plane node
+read-only: only read-annotated modules are reachable; the model supplies no 
+module.
+ledger: unkeyed SHA-256; every step and refusal is hash-chained.
+target  detail          
+web1    ansible_host=orb
+describe an incident, or Ctrl-D to exit.
+
+incident , here's my proposed investigation:
+
+**Target:** `web1`
+**Scope:** `nginx not responding on port 80`
+
+I'll start by triaging this target/scope, which will elect the first hypothesis 
+(likely something like "nginx process down" or "nginx listener/config issue"), 
+then gather real evidence (process state, port binding, config validity, logs, 
+etc.) to confirm or refute each hypothesis in turn until I reach a verdict.
+
+Please confirm you'd like me to proceed with **target=web1, scope="nginx not 
+responding on port 80"** — or let me know if you want a different target/scope.
+incident   ▸ step triage target=web1 scope=nginx not responding on port 80
+  ▸ step investigate 
+    read e1:service_facts (ansible)
+    read e2:listen_ports_facts (ansible)
+    evidence: nginx.service is enabled but not running (confirmed)
+  ▸ step conclude 
+    conclusion: service_down confirmed on web1: nginx.service is enabled but not
+running
+hypothesis elected: **service_down** (nginx process not running), with 
+**resource_exhaustion** queued as the alternate. Let's investigate.
+- **e1 (service_facts):** `nginx.service` is `state: stopped` (though `status: 
+enabled`, meaning it's set to start on boot but isn't currently running).
+- **e2 (listen_ports_facts):** `tcp_listen: []` — no TCP listeners at all on 
+web1, confirming nothing is bound to port 80 (or any TCP port).
+
+This confirms **service_down**: nginx is not running, hence nothing is listening
+on port 80. I'll conclude. Diagnosis
+
+The investigation confirms nginx is unreachable on web1 because **the nginx 
+service itself is stopped**, not because of a config error, resource exhaustion,
+or network/firewall issue. Evidence e1 (`service_facts`) shows `nginx.service` 
+with `state: stopped` — it is enabled to start on boot, but is not currently 
+running. Evidence e2 (`listen_ports_facts`) corroborates this directly at the 
+network layer: `tcp_listen` is completely empty on web1, meaning no process is 
+bound to port 80 (or any TCP port) — consistent with nginx having no 
+worker/master process alive to accept connections. Since the service is enabled 
+but crashed or was manually stopped, the fix is straightforward: restart the 
+nginx service on web1 (`systemctl start nginx`), then verify with a follow-up 
+check that a TCP listener appears on port 80 and that recent nginx logs/journal 
+don't show a crash loop (e.g., from a bad config reload or an OOM kill) that 
+would cause it to immediately fail again.
+╭───────────────────────────────── confirmed ──────────────────────────────────╮
+│ service_down confirmed on web1: nginx.service is enabled but not running     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+evidence                                    
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
+┃ id ┃ read               ┃ target ┃ cited ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
+│ e1 │ service_facts      │ web1   │   *   │
+│ e2 │ listen_ports_facts │ web1   │   *   │
+└────┴────────────────────┴────────┴───────┘
+
+/playbook saves the recorded Ansible playbook · describe the next incident 
+(prior findings carry forward)
+
+incident   playbook saved 
+~/semley/.rocannon/playbooks/host_investigation.yml (2
+tasks, credentials redacted)
+
+incident 
+goodbye.
