@@ -1,0 +1,28 @@
+[project]
+name = "semley"
+version = "0.1.0"
+description = "Autonomous SRE investigation agent: a governed state machine driven by a language model, acting through reflected Ansible tools."
+requires-python = ">=3.12"
+dependencies = [
+    "apache-burr==0.42.0",
+    "pydantic-ai-slim[openai]==2.5.0",
+    "theodosia==0.8.0",
+    "rocannon==0.3.2",
+    "python-dotenv>=1.0",
+    "rich>=13.7",
+]
+
+[project.scripts]
+semley = "semley.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.uv]
+package = true
