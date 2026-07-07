@@ -13,7 +13,9 @@ import pytest
 from burr.core import State
 
 from semley.graph import _is_read_only, build_application
+from semley.hypotheses import CATALOG
 from semley.mount import _v_recall, _v_verdict
+from semley.surfaces import SURFACES
 from theodosia import ValidationFailed
 
 
@@ -70,6 +72,16 @@ def test_refute_election_is_evidence_driven():
     assert graph.get_next_node("refute", remain, "investigate").name == "investigate"
     done = State({"hypotheses_remain": False})
     assert graph.get_next_node("refute", done, "investigate").name == "exhausted"
+
+
+def test_every_hypothesis_read_is_reflected_by_its_surface():
+    """A hypothesis may only read modules its surface reflects through rocannon.
+    A read whose module is not in the surface set can never dispatch, so this is the
+    invariant to hold when the action space grows."""
+    for surface in SURFACES.values():
+        for name in surface.hypotheses:
+            for read in CATALOG[name].reads("host", "namespace"):
+                assert read.module in surface.modules, (surface.name, name, read.module)
 
 
 def test_uri_reads_are_get_or_query_only():

@@ -15,6 +15,7 @@ INVENTORY_DIR = REPO / "inventory"
 NODE_MODULES = [
     "ansible.builtin.service_facts",
     "ansible.builtin.listen_ports_facts",
+    "ansible.builtin.package_facts",
     "ansible.builtin.setup",
 ]
 CONTROL_MODULES = ["kubernetes.core.k8s_info"]

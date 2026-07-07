@@ -40,6 +40,7 @@ def _node_reads_service(target: str, scope: str) -> list[Read]:
     return [
         Read("ansible.builtin.service_facts", {}),
         Read("ansible.builtin.listen_ports_facts", {}),
+        Read("ansible.builtin.package_facts", {}),
     ]
 
 

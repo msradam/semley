@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from typing import Any
 
 from pydantic_ai import Agent
@@ -261,6 +262,8 @@ async def run_repl(surface: Surface) -> None:
             return
         if not user:
             continue
+        if not sys.stdin.isatty():
+            console.print(f"[dim]{user}[/dim]")  # piped stdin does not echo; show it
         if user in {"/quit", "/exit", "quit", "exit", ":q"}:
             console.print("[dim]bye.[/dim]")
             return
