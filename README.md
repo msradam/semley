@@ -49,37 +49,87 @@ The loop terminates at `exhausted` when the hypothesis space is used up, reporti
 what was ruled out rather than inventing a fault. A read that cannot dispatch to the
 target is recorded uninvestigable, never as a refutation.
 
-## Install
+## Prerequisites
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an API key for any
-OpenAI-compatible endpoint.
+The fast checks need nothing but uv. The live agent needs an API key. Each demo target
+needs local infrastructure, which the bring-up scripts create if it is missing.
+
+| To run | Requires |
+|---|---|
+| `make check` (fast deterministic tests) | [uv](https://docs.astral.sh/uv/) and Python 3.12+ |
+| the agent on any surface | the above, plus an API key for an OpenAI-compatible endpoint |
+| the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH) |
+| the `cluster` and `telemetry` demos | Docker, [kind](https://kind.sigs.k8s.io/), and `kubectl` |
+
+Ansible and the collections the reads use (`kubernetes.core`, the `kubernetes` client)
+are installed into the project virtualenv by `uv sync` and the bring-up scripts. You do
+not install them separately.
+
+## Install
 
 ```
 uv sync
 ```
 
-Put the key in a `.env` file:
+Put an API key in a `.env` file at the repo root:
 
 ```
-OPENAI_API_KEY=sk-...             # an OpenAI key; the default model is gpt-5.4
+OPENAI_API_KEY=sk-...             # the default model is gpt-5.4
 ```
 
-The agent is vendor-agnostic: it talks the OpenAI chat-completions protocol, so any
-compatible endpoint works. `OPENAI_API_KEY` is the only required variable. To use a
-different vendor, set `OPENAI_BASE_URL` (for example `https://openrouter.ai/api/v1`)
+The agent is vendor-agnostic: it speaks the OpenAI chat-completions protocol, so any
+compatible endpoint works. `OPENAI_API_KEY` is the only required variable. For a
+different vendor, also set `OPENAI_BASE_URL` (for example `https://openrouter.ai/api/v1`)
 and `SEMLEY_MODEL` (for example `anthropic/claude-sonnet-5`).
 
-## Usage
+## Quick start
+
+The fastest check needs no model and no infrastructure:
+
+```
+make check
+```
+
+To see a real end-to-end investigation without standing up any target, read the
+committed recording at `recordings/host-investigation.txt`. To run one live, pick a
+surface below.
+
+## Driving the agent
 
 ```
 uv run semley --surface host
 ```
 
-Describe an incident in plain language. The agent grounds a target and scope against
-the real inventory, proposes them, and acts only once you confirm. It then streams
-each governed step and each real Ansible read, and closes with a grounded diagnosis.
+The banner lists the inventory hosts (or, on the cluster surface, the live namespaces)
+you can name. Describe an incident in plain language. The agent proposes a target and
+scope, waits for you to confirm, then drives the investigation to a conclusion.
+
+```
+semley › the web service on web1 is not responding
+  (proposes target=web1, scope="web service not responding", asks to confirm)
+semley › yes
+  ▸ step triage target=web1 scope=web service not responding
+  ▸ step investigate
+    read e1 ansible.builtin.service_facts on web1
+    read e2 ansible.builtin.listen_ports_facts on web1
+  ▸ step conclude ...
+```
+
+Reading the stream:
+
+- `▸ step <action>` is one governed transition of the state machine.
+- `read <id> <module> on <target>` is a real Ansible read that dispatched. The id
+  (`e1`, `e2`, ...) tags the evidence the model reads and later cites.
+- `refused <reason>; valid: ...` is the state machine rejecting an unreachable or
+  ungrounded action and listing what is valid instead.
+- The closing panel is the model's grounded verdict: `confirmed`, `all clear`, or
+  `inconclusive`. The evidence table lists every read, with a `*` on the ones the
+  verdict cited.
+
 After a conclusion, `/playbook` writes the recorded Ansible calls as a standard
-playbook.
+playbook, `/quit` exits, and Tab completes the commands.
+
+## Demos
 
 Each demo target has a bring-up script that provisions it and prints clear status, so
 the demo runs end to end from a clean machine:
