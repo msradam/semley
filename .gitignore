@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Semley runtime state
+.semley/
+.env
+
+# Rocannon runtime output (profiles are source, playbooks/runs are generated)
+.rocannon/playbooks/
+.rocannon/runs/
+
+# Execution-environment build artifacts
+*.tar
+*.tar.gz
+ee-build/
+
+# Working documents: references only, never committed
+DESIGN.md
+BUILD_SPEC.md
+LIBRARIES.md
+CLAUDE.md
+TAKE_HOME.md
+DEMO_RUNBOOK.md
+UPDATE.md
+prep/
