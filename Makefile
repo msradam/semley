@@ -4,6 +4,9 @@
 install:
 	uv sync
 
+ci:
+	scripts/ci.sh
+
 check:
 	uv run pytest tests/ -q
 

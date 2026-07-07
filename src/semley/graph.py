@@ -86,7 +86,7 @@ async def investigate(state: State) -> tuple[dict, State]:
     failed: list[str] = []
     for read in spec.reads(state["target"], state["scope"]):
         short = read.module.split(".")[-1]
-        args = {**read.args, "target": host}
+        args = read.args | {"target": host}
         result = await safe_upstream(UPSTREAM, UPSTREAM, read.tool, args)
         payload = result.data if result.usable else None
         dispatched = (
@@ -242,7 +242,9 @@ def build_application(plane: str, hypothesis_names: list[str]) -> Application:
             ("exhausted", "recall"),
             ("recall", "recall"),
         )
-        .with_state(**{**INITIAL, "plane": plane, "hypotheses": list(hypothesis_names)})
+        .with_state(
+            **(INITIAL | {"plane": plane, "hypotheses": list(hypothesis_names)})
+        )
         .with_entrypoint("triage")
     )
     return b

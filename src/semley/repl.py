@@ -224,13 +224,11 @@ async def run_repl(surface: Surface) -> None:
 
 
 def _digest_incidents(persister, partition_key: str) -> list[dict[str, Any]]:
-    incidents = []
-    for s in load_incident_history(persister, partition_key):
-        incidents.append(
-            {
-                "target": s.get("target", "?"),
-                "outcome": s.get("outcome", "?"),
-                "finding": (s.get("conclusion") or "").split(": ", 1)[-1],
-            }
-        )
-    return incidents
+    return [
+        {
+            "target": s.get("target", "?"),
+            "outcome": s.get("outcome", "?"),
+            "finding": (s.get("conclusion") or "").split(": ", 1)[-1],
+        }
+        for s in load_incident_history(persister, partition_key)
+    ]
