@@ -22,7 +22,7 @@ from .agent import build_agent, usage_limits
 from .audit import commit_playbook
 from .mount import load_incident_history, mount_surface
 from .state import render_digest
-from .surfaces import Surface
+from .surfaces import Surface, cluster_namespaces
 
 console = Console()
 
@@ -97,19 +97,7 @@ def _print_hosts(surface: Surface) -> None:
 
 
 def _print_namespaces() -> None:
-    import subprocess
-
-    names: list[str] = []
-    try:
-        out = subprocess.run(
-            ["kubectl", "get", "namespaces", "-o", "name"],
-            capture_output=True,
-            text=True,
-            timeout=6,
-        )
-        names = [ln.split("/", 1)[-1] for ln in out.stdout.splitlines() if ln.strip()]
-    except Exception:
-        pass
+    names = cluster_namespaces()
     if names:
         console.print(
             "\n[bold]namespaces[/bold] [dim](kubectl current-context) "

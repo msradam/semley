@@ -44,8 +44,19 @@ def _is_read_only(module: str, args: dict) -> bool:
     return True
 
 
+def _resolve_namespace(target: str, scope: str, known: list[str]) -> str:
+    """Snap the model's free-text target/scope to a real namespace token.
+
+    The model is verbose and unreliable at emitting a bare namespace ("the host that
+    serves the control plane", "shop namespace"). Rather than trust it, match against
+    the namespaces that actually exist and use the one it named.
+    """
+    tokens = set(f"{target} {scope}".replace("-", " ").split())
+    return next((ns for ns in known if ns in tokens), (target or scope).strip())
+
+
 @action(
-    reads=["hypotheses", "plane"],
+    reads=["hypotheses", "plane", "known_namespaces"],
     writes=[
         "target",
         "scope",
@@ -57,6 +68,9 @@ def _is_read_only(module: str, args: dict) -> bool:
 )
 def triage(state: State, target: str, scope: str = "") -> tuple[dict, State]:
     """Fix the target and scope, and elect the first hypothesis to investigate."""
+    if state["plane"] == "control":
+        target = _resolve_namespace(target, scope, state["known_namespaces"])
+        scope = target
     candidates = list(state["hypotheses"])
     first = candidates[0] if candidates else None
     new = state.update(
@@ -256,7 +270,9 @@ def recall(state: State, evidence_id: str) -> tuple[dict, State]:
     return {"evidence": entry}, state
 
 
-def build_application(plane: str, hypothesis_names: list[str]) -> Application:
+def build_application(
+    plane: str, hypothesis_names: list[str], namespaces: list[str] | None = None
+) -> Application:
     """Assemble the investigation graph for one plane's hypothesis set."""
     b = (
         ApplicationBuilder()
@@ -275,7 +291,14 @@ def build_application(plane: str, hypothesis_names: list[str]) -> Application:
             ("recall", "recall"),
         )
         .with_state(
-            **(INITIAL | {"plane": plane, "hypotheses": list(hypothesis_names)})
+            **(
+                INITIAL
+                | {
+                    "plane": plane,
+                    "hypotheses": list(hypothesis_names),
+                    "known_namespaces": list(namespaces or []),
+                }
+            )
         )
         .with_entrypoint("triage")
     )

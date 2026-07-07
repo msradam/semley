@@ -15,7 +15,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import UsageLimits
 
 from .mount import load_prior_state, mount_surface
-from .surfaces import SURFACES, Surface
+from .surfaces import SURFACES, Surface, cluster_namespaces
 
 ALLOWED_TOOLS = {"step", "reset_session"}
 DEFAULT_MODEL = "gpt-5.4"
@@ -30,16 +30,19 @@ if you request an unreachable action it refuses and lists what is valid, so corr
 course and continue.
 
 The loop:
-- `triage` (inputs: target, scope): fix what you investigate. The `target` MUST be one
-  of the hosts in the inventory shown to you; `scope` is a short free-text note
-  (a namespace for a cluster surface, otherwise the symptom). This elects the first
-  hypothesis.
+- `triage` (inputs: target, scope): fix what you investigate. The `target` is what you
+  investigate, named exactly as it appears in the banner and nothing more: on a host
+  surface it is one of the inventory hosts; on a cluster surface it is one of the
+  namespaces listed (for example `shop`, not `shop namespace`). `scope` is a short
+  free-text note on the symptom. This elects the first hypothesis.
 - `investigate`: gathers the current hypothesis's reads and returns the raw facts for
   each one, tagged with an evidence id. READ those facts and judge for yourself.
 - Then, based on what the facts show:
   - `conclude` (inputs: finding, cited_evidence): when the facts confirm the current
     hypothesis. `finding` is your one-line diagnosis naming the specific failing entity
     you found in the facts; `cited_evidence` is the list of evidence ids you relied on.
+    You MUST call this action to record a confirmed verdict; a diagnosis written only as
+    text, without calling `conclude`, records nothing and leaves the investigation open.
   - `refute` (inputs: finding, cited_evidence): when the facts rule the current
     hypothesis out. This elects the next hypothesis (or exhausts the space).
   - `gather`: to collect more evidence for the same hypothesis.
@@ -54,8 +57,11 @@ show. A read that could not run is recorded uninvestigable, never a refutation.
 
 Entry: given the operator's incident and the inventory, first state the single target
 and scope you propose and ask the operator to confirm. Do not call `step` until they
-confirm. Once confirmed, drive the loop to a conclusion, then give a one-paragraph
-plain-English diagnosis citing the evidence.
+confirm. When they confirm, call `triage` with the target and scope you proposed, never
+the literal word they replied with. Once confirmed, drive the loop until you call
+`conclude`, `refute`, or reach `exhausted`; do not stop after `investigate` with only
+prose. After the verdict is recorded, give a one-paragraph plain-English summary that
+cites the evidence.
 """
 
 
@@ -88,9 +94,14 @@ def investigate(surface_name: str, incident: str) -> dict[str, Any]:
     surface: Surface = SURFACES[surface_name]
     server, _upstream, persister = mount_surface(surface)
     agent = build_agent(server)
-    hosts = ", ".join(name for name, _ in surface.targets()) or "(none)"
+    if surface.plane == "control":
+        names = cluster_namespaces()
+        targetables = f"Namespaces (the target is one of these, exactly): {', '.join(names) or '(none)'}"
+    else:
+        hosts = ", ".join(name for name, _ in surface.targets()) or "(none)"
+        targetables = f"Inventory hosts: {hosts}"
     prompt = (
-        f"Inventory hosts: {hosts}. Incident: {incident}\n"
+        f"{targetables}. Incident: {incident}\n"
         "Proceed without asking for confirmation: pick the target and scope yourself and "
         "drive the investigation to a conclusion."
     )

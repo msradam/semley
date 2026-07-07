@@ -40,6 +40,22 @@ class Surface:
         return _parse_ini_hosts(self.inventory)
 
 
+def cluster_namespaces() -> list[str]:
+    """Namespaces in the current kubectl context, to ground a control-plane target."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["kubectl", "get", "namespaces", "-o", "name"],
+            capture_output=True,
+            text=True,
+            timeout=6,
+        )
+        return [ln.split("/", 1)[-1] for ln in out.stdout.splitlines() if ln.strip()]
+    except Exception:
+        return []
+
+
 def _parse_ini_hosts(path: Path) -> list[tuple[str, str]]:
     if not path.exists():
         return []

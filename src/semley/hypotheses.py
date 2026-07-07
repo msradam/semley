@@ -47,8 +47,14 @@ def _node_reads_setup(target: str, scope: str) -> list[Read]:
     return [Read("ansible.builtin.setup", {})]
 
 
-def _control_reads_pods(target: str, scope: str) -> list[Read]:
-    return [Read("kubernetes.core.k8s_info", {"kind": "Pod", "namespace": scope})]
+def _control_reads(namespace: str, scope: str) -> list[Read]:
+    # On the control plane the target IS the namespace. Read the pods and the
+    # namespace events together: pod status shows the failing container, events carry
+    # the reason (the pull error, the back-off), so the model can name the root cause.
+    return [
+        Read("kubernetes.core.k8s_info", {"kind": "Pod", "namespace": namespace}),
+        Read("kubernetes.core.k8s_info", {"kind": "Event", "namespace": namespace}),
+    ]
 
 
 PROMETHEUS_URL = "http://localhost:9090"
@@ -88,7 +94,7 @@ WORKLOAD_UNHEALTHY = Hypothesis(
     name="workload_unhealthy",
     plane="control",
     description="a workload will not become ready (image pull or crash loop)",
-    reads=_control_reads_pods,
+    reads=_control_reads,
 )
 
 TARGET_DOWN = Hypothesis(

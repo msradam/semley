@@ -16,7 +16,7 @@ from burr.core.persistence import SQLitePersister
 from theodosia import ValidationFailed
 
 from .graph import build_application
-from .surfaces import REPO, Surface
+from .surfaces import REPO, Surface, cluster_namespaces
 from .tools import build_upstream
 
 HOME = REPO / ".semley"
@@ -63,10 +63,11 @@ def mount_surface(surface: Surface):
     )
     persister.initialize()
     trail = theodosia.tracker(surface.name, str(HOME / "trail"))
+    namespaces = cluster_namespaces() if surface.plane == "control" else []
 
     def factory():
         return (
-            build_application(surface.plane, surface.hypotheses)
+            build_application(surface.plane, surface.hypotheses, namespaces)
             .with_tracker(trail)
             .with_state_persister(persister)
             .with_identifiers(partition_key=surface.name)

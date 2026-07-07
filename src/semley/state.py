@@ -16,6 +16,7 @@ INITIAL: dict[str, Any] = {
     "target": "",
     "scope": "",
     "plane": "",
+    "known_namespaces": [],
     "hypotheses": [],
     "current_hypothesis": None,
     "ruled_out": [],
