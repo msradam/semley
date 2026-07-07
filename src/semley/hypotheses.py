@@ -49,12 +49,16 @@ def _node_reads_setup(target: str, scope: str) -> list[Read]:
 
 
 def _control_reads(namespace: str, scope: str) -> list[Read]:
-    # On the control plane the target IS the namespace. Read the pods and the
-    # namespace events together: pod status shows the failing container, events carry
-    # the reason (the pull error, the back-off), so the model can name the root cause.
+    # On the control plane the target IS the namespace. Pods show the failing
+    # container, events carry the reason (pull error, back-off), and deployments show
+    # the desired spec (the image that was asked for), so the model can name the root
+    # cause and where it was configured.
     return [
         Read("kubernetes.core.k8s_info", {"kind": "Pod", "namespace": namespace}),
         Read("kubernetes.core.k8s_info", {"kind": "Event", "namespace": namespace}),
+        Read(
+            "kubernetes.core.k8s_info", {"kind": "Deployment", "namespace": namespace}
+        ),
     ]
 
 
