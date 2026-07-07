@@ -33,6 +33,9 @@ read is a fixed GET template the model cannot alter rather than a read-annotated
 
 ## Architecture
 
+`ARCHITECTURE.md` covers the design in depth: the loop, the key decisions, and their
+trade-offs. The short version:
+
 - **Burr** is the state-machine engine: the investigation graph, its actions, and
   the evidence-driven branching.
 - **Theodosia** mounts that graph as a governed MCP server, exposing it through the
