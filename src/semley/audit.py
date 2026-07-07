@@ -11,7 +11,9 @@ from typing import Any
 from fastmcp import Client
 
 
-async def commit_playbook(upstream_server, name: str, description: str = "") -> dict[str, Any]:
+async def commit_playbook(
+    upstream_server, name: str, description: str = ""
+) -> dict[str, Any]:
     """Write the recorded reads as an Ansible playbook; return rocannon's report."""
     async with Client(upstream_server) as client:
         res = await client.call_tool(

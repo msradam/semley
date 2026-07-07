@@ -33,7 +33,9 @@ class Surface:
     def targets(self) -> list[tuple[str, str]]:
         """(name, detail) rows for the banner: hosts for node, namespaces for control."""
         if self.plane == "control":
-            return [(ns, "namespace") for ns in self.scopes] or [("(namespace set at entry)", "")]
+            return [(ns, "namespace") for ns in self.scopes] or [
+                ("(namespace set at entry)", "")
+            ]
         return _parse_ini_hosts(self.inventory)
 
 
@@ -41,13 +43,25 @@ def _parse_ini_hosts(path: Path) -> list[tuple[str, str]]:
     if not path.exists():
         return []
     rows: list[tuple[str, str]] = []
+    in_hosts = True
     for line in path.read_text().splitlines():
         line = line.strip()
-        if not line or line.startswith(("[", "#", ";")):
+        if line.startswith("["):
+            in_hosts = ":" not in line  # skip [group:vars] / [group:children] sections
+            continue
+        if not line or line.startswith(("#", ";")) or not in_hosts:
             continue
         name, _, rest = line.partition(" ")
-        detail = next((tok.split("=", 1)[1] for tok in rest.split()
-                       if tok.startswith("ansible_host=")), "")
+        if "=" in name:  # a bare key=value var line, not a host
+            continue
+        detail = next(
+            (
+                tok.split("=", 1)[1]
+                for tok in rest.split()
+                if tok.startswith("ansible_host=")
+            ),
+            "",
+        )
         rows.append((name, f"ansible_host={detail}" if detail else "via ssh"))
     return rows
 

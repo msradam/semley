@@ -14,15 +14,29 @@ from .surfaces import SURFACES
 def _quiet_libraries() -> None:
     """Keep library log noise off the Rich stream; notices print at launch only."""
     logging.basicConfig(level=logging.ERROR)
-    for name in ("rocannon", "ansible_runner", "mcp", "httpx", "httpcore",
-                 "theodosia", "fastmcp", "burr"):
+    for name in (
+        "rocannon",
+        "ansible_runner",
+        "mcp",
+        "httpx",
+        "httpcore",
+        "theodosia",
+        "fastmcp",
+        "burr",
+    ):
         logging.getLogger(name).setLevel(logging.ERROR)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="semley", description="Autonomous SRE investigation agent.")
-    parser.add_argument("--surface", required=True, choices=sorted(SURFACES),
-                        help="the governed surface to investigate through")
+    parser = argparse.ArgumentParser(
+        prog="semley", description="Autonomous SRE investigation agent."
+    )
+    parser.add_argument(
+        "--surface",
+        required=True,
+        choices=sorted(SURFACES),
+        help="the governed surface to investigate through",
+    )
     args = parser.parse_args(argv)
 
     _quiet_libraries()
