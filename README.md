@@ -27,8 +27,10 @@ Control and verification live outside the model:
   across incidents instead of re-sending every prior investigation's raw evidence.
 
 Reads are performed by reflecting Ansible modules into typed tools (via rocannon),
-annotated read-only from each module's own properties. The surface is read-only by
-default: only read-annotated tools are reachable, and the model never names a module.
+annotated read-only from each module's own properties. The model never names a module.
+On the node and control planes only read-annotated tools are reachable. The telemetry
+plane is the documented exception (below): no Ansible module reads Prometheus, so its
+read is a fixed GET template the model cannot alter rather than a read-annotated tool.
 
 ## Architecture
 
@@ -153,9 +155,12 @@ make check          # fast deterministic checks (no model, no infrastructure)
   (`up == 0`), and port-forwards it to `localhost:9090`; `make telemetry-down` stops it.
   Ansible has no read-only module that queries Prometheus (the observability
   collections are all deploy roles and CRUD management), so this surface reads over
-  `ansible.builtin.uri`, a general HTTP module. The read-only guarantee is therefore
-  enforced in the action phase, which allows only GET or QUERY, rather than by module
-  annotation. This is a deliberate workaround for the missing telemetry facts module.
+  `ansible.builtin.uri`, a general HTTP module. Because `uri` is not read-annotated,
+  the boundary here is curation, not annotation: the read is a fixed GET template the
+  model cannot alter (it supplies no module and no method), and the action phase also
+  rejects any non-GET/QUERY method as defense-in-depth. This is a deliberate workaround
+  for the missing telemetry facts module. The surface detects a failing scrape target
+  (`up == 0`); deeper root-cause diagnosis and cross-plane correlation are out of scope.
 - **localhost**: this machine as a local target (no setup). On a non-systemd control
   host the node reads cannot dispatch, so it returns `inconclusive`, not a false
   all-clear.

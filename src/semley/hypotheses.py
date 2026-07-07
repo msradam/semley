@@ -56,7 +56,8 @@ PROMETHEUS_URL = "http://localhost:9090"
 
 def _telemetry_reads(target: str, scope: str) -> list[Read]:
     # Ansible has no read-only module that queries Prometheus, so this uses uri, a
-    # general HTTP module. The action phase enforces GET/QUERY to keep it a read.
+    # general HTTP module. The url and GET method are fixed here; the model cannot
+    # change them, and the action phase rejects any non-GET/QUERY method as a backstop.
     return [
         Read(
             "ansible.builtin.uri",

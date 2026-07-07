@@ -100,7 +100,7 @@ TELEMETRY = Surface(
     hypotheses=["target_down"],
     modules=OBSERVABILITY_MODULES,
     inventory=INVENTORY_DIR / "localhost.ini",
-    invariant="read-only by enforcement: uri is HTTP, so the action phase allows only GET/QUERY.",
+    invariant="read-only by construction: the uri read is a fixed GET template; the model sets no module or method.",
 )
 
 SURFACES = {s.name: s for s in (HOST, LOCALHOST, CLUSTER, TELEMETRY)}

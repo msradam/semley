@@ -33,11 +33,11 @@ SAFE_HTTP_METHODS = {"GET", "QUERY"}
 
 
 def _is_read_only(module: str, args: dict) -> bool:
-    """A uri read is only allowed if its method is safe (GET or QUERY, RFC 9110).
-
-    Facts modules are inherently read-only; uri is a general HTTP module, so the
-    read-only guarantee for the telemetry surface is enforced here, not by the
-    module. QUERY is the safe read method proposed in the HTTP QUERY draft.
+    """Reject a uri read whose method is not safe: GET (RFC 9110) or QUERY (the HTTP
+    QUERY draft). The telemetry read is a fixed GET template the model cannot alter,
+    so this guards a future hypothesis author, not the model: defense-in-depth on top
+    of curation, not the primary read-only boundary. Facts modules are read-only in
+    themselves and are not checked here.
     """
     if module.endswith(".uri"):
         return str(args.get("method", "GET")).upper() in SAFE_HTTP_METHODS
