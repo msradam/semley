@@ -72,22 +72,21 @@ kept out of the fast suite.
 
 ## The one invariant to preserve
 
-The model decides the verdict; code never does. `investigate` returns raw facts and
-computes no conclusion. The mount validators in `src/semley/mount.py` check only that a
-verdict cites a read that actually dispatched, never whether the facts support it.
-Adjudicating fact values in code would rebuild the answer-key oracle this design exists
-to avoid. Do not add fault-specific names, thresholds, or verdict logic to the graph or
-the hypothesis catalog.
+The model decides the verdict; code never does. `read` returns raw facts and computes
+no conclusion. The mount validators in `src/semley/mount.py` check only that a read's
+module is on the surface's set and that a verdict cites a read that actually
+dispatched, never whether the facts support it. Adjudicating fact values in code would
+rebuild the answer-key oracle this design exists to avoid. Do not add fault-specific
+names, thresholds, prescribed reads, or verdict logic to the graph or the surfaces.
 
 ## Project layout
 
 `src/semley/`:
 
-- `graph.py`: the Burr state machine and its actions (`triage`, `investigate`, `conclude`, `refute`, `gather`, `exhausted`, `recall`).
+- `graph.py`: the Burr state machine and its actions (`triage`, `read`, `conclude`, `inconclusive`, `recall`).
 - `mount.py`: the Theodosia mount, the grounding validators, the state persister, the audit trail.
-- `surfaces.py`: the four surfaces (`host`, `localhost`, `cluster`, `telemetry`) and their disjoint module sets.
-- `tools.py`: rocannon reflection of each surface's curated Ansible modules.
-- `hypotheses.py`: the pre-enumerated hypothesis catalog and the reads each one probes with.
+- `surfaces.py`: the four surfaces (`host`, `localhost`, `cluster`, `telemetry`), each binding an inventory and the read-only module set that is the model's action space.
+- `tools.py`: rocannon reflection of each surface's modules.
 - `agent.py`: the PydanticAI agent, filtered to the governed tools, plus the headless `investigate` API.
 - `repl.py`: the streaming REPL and its rendering.
 - `state.py`, `audit.py`, `cli.py`: state helpers, playbook recording, the CLI entry point.

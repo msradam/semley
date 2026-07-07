@@ -18,18 +18,16 @@ Control and verification live outside the model:
 - A Burr state machine is the investigation graph. The model advances it only by
   calling one governed `step` tool with an action name and inputs. An unreachable
   action is refused with the valid next actions, so a wrong move is recoverable.
-- The mount grounds every `conclude` and `refute`: it checks that the verdict cites a
-  read that actually ran, and refuses it otherwise. The failing entity comes from the
-  evidence, not from the code.
+- The mount grounds every verdict: `conclude` must cite a read that actually ran, or
+  it is refused. The failing entity comes from the evidence, not from the code.
 - The durable record is a persisted state store, not the transcript. Cross-incident
   memory is a compact findings digest rendered from that store, so context stays flat
   across incidents instead of re-sending every prior investigation's raw evidence.
 
-Reads are performed by reflecting Ansible modules into typed tools (via rocannon),
-annotated read-only from each module's own properties. The model never names a module.
-On the node and control planes only read-annotated tools are reachable. The telemetry
-plane is the documented exception (below): no Ansible module reads Prometheus, so its
-read is a fixed GET template the model cannot alter rather than a read-annotated tool.
+Reads are Ansible modules reflected into typed tools (via rocannon). The model picks
+the module and writes its arguments, but only within the surface's curated read-only
+set; the mount refuses anything outside it. The telemetry surface reads over `uri`, a
+general HTTP module, kept read-only by allowing only GET and QUERY (see Demos).
 
 ## Architecture
 
@@ -124,11 +122,12 @@ scope, waits for you to confirm, then drives the investigation to a conclusion.
 semley › the web service on web1 is not responding
   (proposes target=web1, scope="web service not responding", asks to confirm)
 semley › yes
-  ▸ step triage target=web1 scope=web service not responding
-  ▸ step investigate
+  ▸ step triage target=web1 scope=web service not responding hypothesis=...
+  ▸ step read module=ansible.builtin.service_facts args={}
     read e1 ansible.builtin.service_facts on web1
+  ▸ step read module=ansible.builtin.listen_ports_facts args={}
     read e2 ansible.builtin.listen_ports_facts on web1
-  ▸ step conclude ...
+  ▸ step conclude finding=... cited_evidence=['e1', 'e2']
 ```
 
 Reading the stream:
@@ -138,9 +137,8 @@ Reading the stream:
   (`e1`, `e2`, ...) tags the evidence the model reads and later cites.
 - `refused <reason>; valid: ...` is the state machine rejecting an unreachable or
   ungrounded action and listing what is valid instead.
-- The closing panel is the model's grounded verdict: `confirmed`, `all clear`, or
-  `inconclusive`. The evidence table lists every read, with a `*` on the ones the
-  verdict cited.
+- The closing panel is the model's grounded verdict: `confirmed` or `inconclusive`.
+  The evidence table lists every read, with a `*` on the ones the verdict cited.
 
 After a conclusion, `/playbook` writes the recorded Ansible calls as a standard
 playbook, `/quit` exits, and Tab completes the commands.
@@ -191,7 +189,7 @@ session bound to one plane structurally cannot call another plane's modules.
 | `host` | node | service and resource health on a remote systemd host (the primary demo) |
 | `localhost` | node | this machine, as a legitimate local target |
 | `cluster` | control | a Kubernetes workload fault, scoped by namespace |
-| `telemetry` | observability | Prometheus scrape health, read over a GET-only `uri` (see below) |
+| `telemetry` | observability | Prometheus scrape health, read over a GET-only `uri` (see Demos) |
 
 ## Configuration
 
