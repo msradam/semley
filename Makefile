@@ -1,4 +1,5 @@
-.PHONY: install check demo-host demo-localhost inject heal clean
+.PHONY: install check host-up inject heal demo-host demo-localhost \
+        cluster-up cluster-down demo-cluster clean
 
 install:
 	uv sync
@@ -6,20 +7,37 @@ install:
 check:
 	uv run pytest tests/ -q
 
-# Primary surface: host service/health investigation on a managed systemd target.
-# Bring the fault up, run the investigation, restore the healthy baseline.
-demo-host: inject
-	uv run semley --surface host
-	$(MAKE) heal
+# --- Node plane: host service/health on a managed systemd target (web1) ---
 
-demo-localhost:
-	uv run semley --surface localhost
+host-up:
+	scripts/host-up.sh
 
 inject:
 	scripts/inject-fault.sh
 
 heal:
 	scripts/heal.sh
+
+# Bring the target and fault up, investigate, restore the healthy baseline.
+demo-host: host-up inject
+	uv run semley --surface host
+	$(MAKE) heal
+
+# The control host itself as a legitimate local target.
+demo-localhost:
+	uv run semley --surface localhost
+
+# --- Control plane: workload health in a kind cluster namespace ---
+
+cluster-up:
+	scripts/cluster-up.sh
+
+cluster-down:
+	scripts/cluster-down.sh
+
+# Bring the cluster and faulted workload up, then investigate.
+demo-cluster: cluster-up
+	uv run semley --surface cluster
 
 clean:
 	rm -rf .semley .rocannon/playbooks .rocannon/runs

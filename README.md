@@ -80,18 +80,25 @@ each governed step and each real Ansible read, and closes with a grounded diagno
 After a conclusion, `/playbook` writes the recorded Ansible calls as a standard
 playbook.
 
-The primary surface (`--surface host`) is the reliable one: host service and health
-investigation on a managed systemd Linux target, the Ansible heartland. Bring up the
-demo end to end with a real injected fault:
+Each demo target has a bring-up script that provisions it and prints clear status, so
+the demo runs end to end from a clean machine:
 
 ```
-make demo-host      # inject a fault, investigate it, restore the baseline
+make demo-host      # host-up + inject a fault + investigate + restore the baseline
+make demo-cluster   # kind cluster + a faulted workload + investigate it
+make demo-localhost # investigate this control host
 make check          # fast deterministic checks (no model, no infrastructure)
 ```
 
-`scripts/inject-fault.sh` stops an enabled service on the target; `scripts/heal.sh`
-restores it. The target is an OrbStack systemd machine; the inventory is in
-`inventory/hosts.ini`.
+- **host** (primary, reliable): `scripts/host-up.sh` ensures an OrbStack systemd
+  machine (`web1`) running nginx; `inject-fault.sh` stops it (enabled-but-stopped),
+  `heal.sh` restores it. Inventory: `inventory/hosts.ini`.
+- **cluster** (control plane): `scripts/cluster-up.sh` stands up a kind cluster, the
+  `kubernetes.core` collection and client, and a workload stuck in `ImagePullBackOff`
+  in the `shop` namespace; `make cluster-down` removes it.
+- **localhost**: this machine as a local target (no setup). On a non-systemd control
+  host the node reads cannot dispatch, so it returns `inconclusive`, not a false
+  all-clear.
 
 ## Surfaces
 
@@ -100,8 +107,8 @@ session bound to one plane structurally cannot call another plane's modules.
 
 | Surface | Plane | Investigates |
 |---|---|---|
-| `host` | node | service and resource health on a remote systemd host (reliable) |
-| `localhost` | node | this machine, as a legitimate target |
+| `host` | node | service and resource health on a remote systemd host (the primary demo) |
+| `localhost` | node | this machine, as a legitimate local target |
 | `cluster` | control | a Kubernetes workload fault, scoped by namespace |
 
 ## Configuration
@@ -126,7 +133,9 @@ The hypothesis set is bounded and pre-enumerated; faults outside it are out of s
 design, and the loop terminates honestly at `exhausted` rather than guessing. A session
 is bound to one inventory and one tool package at launch. Recorded playbooks are audit
 records, not directly re-runnable: credentials are redacted and must be restored to
-replay. The host surface is the exercised, reliable one.
+replay. The host surface is the most reliable; the cluster surface works but has more
+moving parts (a kind cluster and the kubernetes client), so it needs `make cluster-up`
+first.
 
 ## License
 
