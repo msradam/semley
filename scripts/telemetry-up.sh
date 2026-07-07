@@ -71,16 +71,17 @@ kubectl -n monitoring rollout status deploy/prometheus --timeout=120s >/dev/null
 ok "Prometheus running"
 
 step "port-forward localhost:9090"
-if [ -f "$PF_PID" ] && kill -0 "$(cat "$PF_PID")" 2>/dev/null; then
+# Reuse the forward only if the pid is alive AND the port actually answers; a stale
+# pidfile from a prior run would otherwise look up but forward nothing.
+if [ -f "$PF_PID" ] && kill -0 "$(cat "$PF_PID")" 2>/dev/null && curl -sf localhost:9090/-/ready >/dev/null 2>&1; then
   ok "port-forward already up (pid $(cat "$PF_PID"))"
 else
   kubectl -n monitoring port-forward svc/prometheus 9090:9090 >/dev/null 2>&1 &
   echo $! > "$PF_PID"
-  sleep 2
   ok "port-forward up (pid $(cat "$PF_PID"))"
 fi
-until curl -sf localhost:9090/-/ready >/dev/null 2>&1; do sleep 1; done
-reason=$(curl -sf 'localhost:9090/api/v1/query?query=up{job="checkout"}' | grep -o '"value":\[[^]]*\]' | tail -1)
+for _ in $(seq 1 30); do curl -sf localhost:9090/-/ready >/dev/null 2>&1 && break; sleep 1; done
+reason=$(curl -sf 'localhost:9090/api/v1/query?query=up{job="checkout"}' 2>/dev/null | grep -o '"value":\[[^]]*\]' | tail -1 || true)
 ok "Prometheus answering; checkout scrape ${reason:-pending} (0 == down)"
 
 printf '\n\033[1;32m✔ telemetry target ready.\033[0m\n'
