@@ -32,7 +32,7 @@ _LOGO = r"""      ┓
 ┛┗ ┛┗┗┗┗ ┗┫
           ┛"""
 
-_OUTCOME_STYLE = {"confirmed": "red", "all_clear": "green", "inconclusive": "yellow"}
+_OUTCOME_STYLE = {"confirmed": "red", "inconclusive": "yellow"}
 _COMMANDS = ["/playbook", "/help", "/quit", "/exit"]
 
 

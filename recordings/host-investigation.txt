@@ -1,60 +1,50 @@
-╭────────────────────────────────────╮
-│ S E M L E Y                        │
-│ autonomous SRE investigation agent │
-╰────────────────────────────────────╯
+      ┓
+┏┏┓┏┳┓┃┏┓┓┏
+┛┗ ┛┗┗┗┗ ┗┫
+          ┛
+autonomous SRE investigation agent
+
 surface host  /  plane node
-read-only: only read-annotated modules are reachable; the model supplies no 
-module.
+read-only: every module here is a facts read; the reads run on the target host.
 ledger: unkeyed SHA-256; every step and refusal is hash-chained.
-target  detail          
-web1    ansible_host=orb
-describe an incident, or Ctrl-D to exit.
 
-incident , here's my proposed investigation:
+inventory ~/semley/inventory/hosts.ini · name one of 
+these hosts in your incident:
+host  connection      
+web1  ansible_host=orb
 
-**Target:** `web1`
-**Scope:** `nginx not responding on port 80`
+action space (read-only): service_facts  listen_ports_facts  package_facts  
+setup
+describe an incident · /help for commands · /quit to exit.
 
-I'll start by triaging this target/scope, which will elect the first hypothesis 
-(likely something like "nginx process down" or "nginx listener/config issue"), 
-then gather real evidence (process state, port binding, config validity, logs, 
-etc.) to confirm or refute each hypothesis in turn until I reach a verdict.
+semley › the web service on web1 is not responding
+posed target: `web1`  
+Proposed scope: `web service not responding`
 
-Please confirm you'd like me to proceed with **target=web1, scope="nginx not 
-responding on port 80"** — or let me know if you want a different target/scope.
-incident   ▸ step triage target=web1 scope=nginx not responding on port 80
-  ▸ step investigate 
-    read e1:service_facts (ansible)
-    read e2:listen_ports_facts (ansible)
-    evidence: nginx.service is enabled but not running (confirmed)
-  ▸ step conclude 
-    conclusion: service_down confirmed on web1: nginx.service is enabled but not
-running
-hypothesis elected: **service_down** (nginx process not running), with 
-**resource_exhaustion** queued as the alternate. Let's investigate.
-- **e1 (service_facts):** `nginx.service` is `state: stopped` (though `status: 
-enabled`, meaning it's set to start on boot but isn't currently running).
-- **e2 (listen_ports_facts):** `tcp_listen: []` — no TCP listeners at all on 
-web1, confirming nothing is bound to port 80 (or any TCP port).
-
-This confirms **service_down**: nginx is not running, hence nothing is listening
-on port 80. I'll conclude. Diagnosis
-
-The investigation confirms nginx is unreachable on web1 because **the nginx 
-service itself is stopped**, not because of a config error, resource exhaustion,
-or network/firewall issue. Evidence e1 (`service_facts`) shows `nginx.service` 
-with `state: stopped` — it is enabled to start on boot, but is not currently 
-running. Evidence e2 (`listen_ports_facts`) corroborates this directly at the 
-network layer: `tcp_listen` is completely empty on web1, meaning no process is 
-bound to port 80 (or any TCP port) — consistent with nginx having no 
-worker/master process alive to accept connections. Since the service is enabled 
-but crashed or was manually stopped, the fix is straightforward: restart the 
-nginx service on web1 (`systemctl start nginx`), then verify with a follow-up 
-check that a TCP listener appears on port 80 and that recent nginx logs/journal 
-don't show a crash loop (e.g., from a bad config reload or an OOM kill) that 
-would cause it to immediately fail again.
+Please confirm I should investigate `web1` for that symptom.
+semley › yes
+  ▸ step triage target=web1 scope=web service not responding hypothesis=The web 
+service is down, not listening on its expected port, or the host lacks 
+network/service prerequisites.
+  ▸ step read module=ansible.builtin.service_facts args={}
+  ▸ step read module=ansible.builtin.listen_ports_facts args={}
+  ▸ step read module=ansible.builtin.package_facts args={}
+    read e1 ansible.builtin.service_facts on web1
+    read e2 ansible.builtin.listen_ports_facts on web1
+    read e3 ansible.builtin.package_facts on web1
+  ▸ step conclude finding=nginx service on web1 is stopped and no TCP ports are 
+listening cited_evidence=['e1', 'e2', 'e3']
+    conclusion: confirmed on web1: nginx service on web1 is stopped and no TCP 
+ports are listening
+verdict: nginx on `web1` is stopped. In the service facts, both `nginx` and 
+`nginx.service` are in `stopped` state (`e1`), the host has no TCP listening 
+sockets at all (`e2`), and the nginx package is installed so this is not a 
+missing-package issue (`e3`). Plain English: the web service is not responding 
+because nginx is installed but not running, so nothing is listening for HTTP 
+traffic on the host.
 ╭───────────────────────────────── confirmed ──────────────────────────────────╮
-│ service_down confirmed on web1: nginx.service is enabled but not running     │
+│ confirmed on web1: nginx service on web1 is stopped and no TCP ports are     │
+│ listening                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 evidence                                    
 ┏━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
@@ -62,14 +52,16 @@ evidence
 ┡━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
 │ e1 │ service_facts      │ web1   │   *   │
 │ e2 │ listen_ports_facts │ web1   │   *   │
+│ e3 │ package_facts      │ web1   │   *   │
 └────┴────────────────────┴────────┴───────┘
 
 /playbook saves the recorded Ansible playbook · describe the next incident 
 (prior findings carry forward)
 
-incident   playbook saved 
-~/semley/.rocannon/playbooks/host_investigation.yml (2
+semley › /playbook
+  playbook saved 
+~/semley/.rocannon/playbooks/host_investigation.yml (3
 tasks, credentials redacted)
 
-incident 
-goodbye.
+semley › /quit
+bye.

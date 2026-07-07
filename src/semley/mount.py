@@ -1,10 +1,10 @@
 """Govern the graph: mount it via Theodosia with a state persister and the audit trail.
 
 The validators are the external verification, and they check process, not content:
-a verdict must cite evidence that was actually gathered and dispatched (conclude,
-refute), and recall must name an id that exists. They never inspect a fact value or
-judge whether the evidence supports the verdict; that judgment is the model's, and
-adjudicating it here would rebuild the answer key.
+a read must name a module on the surface's set, a conclusion must cite evidence that
+was actually gathered and dispatched, and recall must name an id that exists. They
+never inspect a fact value or judge whether the evidence supports the verdict; that
+judgment is the model's, and adjudicating it here would rebuild the answer key.
 """
 
 from __future__ import annotations
