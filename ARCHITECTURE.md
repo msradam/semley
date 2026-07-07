@@ -102,8 +102,8 @@ QUERY before dispatch. The model writes its own PromQL; it cannot write a mutati
 
 **Failure is recorded, never inferred from.** A read that cannot dispatch is recorded
 `uninvestigable` with the module's own error message. It never counts as evidence of
-health or of fault. An investigation whose reads all fail ends `inconclusive`, not
-`all clear`.
+health or of fault. An investigation whose reads all fail ends `inconclusive`, never
+a false all-clear.
 
 **Memory is the state store, not the transcript.** Investigation state persists in
 SQLite (`.semley/memory.db`, partitioned by surface). At a new incident the model

@@ -7,11 +7,67 @@
           ┛
 ```
 
-Semley is an autonomous SRE investigation agent. A language model drives the
-investigation; a state machine governs what it may do; and every read runs through a
-typed, auditable tool surface the model cannot reach past. The thesis is "entrust,
-don't trust": the model decides where the investigation goes, while authority over its
-actions and verification of its conclusions stay outside it.
+An autonomous SRE investigation agent, on rails.
+
+A language model drives the investigation; a state machine governs what it may do; and
+every read runs through a typed, auditable tool surface the model cannot reach past.
+The thesis is "entrust, don't trust": the model decides where the investigation goes,
+while authority over its actions and verification of its conclusions stay outside it.
+
+Describe an incident in plain language and watch it work:
+
+```
+semley › the web service on web1 is not responding
+  (proposes target=web1, scope="web service not responding", asks to confirm)
+semley › yes
+  ▸ step triage target=web1 scope=web service not responding hypothesis=...
+  ▸ step read module=ansible.builtin.service_facts args={}
+    read e1 ansible.builtin.service_facts on web1
+  ▸ step read module=ansible.builtin.listen_ports_facts args={}
+    read e2 ansible.builtin.listen_ports_facts on web1
+  ▸ step conclude finding=... cited_evidence=['e1', 'e2']
+```
+
+A full session, captured live, is committed at `recordings/host-investigation.txt`.
+
+## Install
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
+
+```
+uv sync
+```
+
+Put an API key in a `.env` file at the repo root:
+
+```
+OPENAI_API_KEY=sk-...             # the default model is gpt-5.4
+```
+
+The agent is vendor-agnostic: it speaks the OpenAI chat-completions protocol, so any
+compatible endpoint works. `OPENAI_API_KEY` is the only required variable. For a
+different vendor, also set `OPENAI_BASE_URL` (for example `https://openrouter.ai/api/v1`)
+and `SEMLEY_MODEL` (for example `anthropic/claude-sonnet-5`).
+
+## Quick start
+
+The fastest check needs no model and no infrastructure:
+
+```
+make check
+```
+
+To see a real end-to-end investigation without standing up any target, read the
+committed recording. To run one live, stand up a demo target (see Demos) and run:
+
+```
+uv run semley --surface host
+```
+
+## How it works
+
+`ARCHITECTURE.md` covers the design in depth: the loop, the key decisions, and their
+trade-offs. The short version.
 
 Control and verification live outside the model:
 
@@ -29,10 +85,7 @@ the module and writes its arguments, but only within the surface's curated read-
 set; the mount refuses anything outside it. The telemetry surface reads over `uri`, a
 general HTTP module, kept read-only by allowing only GET and QUERY (see Demos).
 
-## Architecture
-
-`ARCHITECTURE.md` covers the design in depth: the loop, the key decisions, and their
-trade-offs. The short version:
+The four pieces:
 
 - **Burr** is the state-machine engine: the investigation graph, its actions, and
   the evidence-driven branching.
@@ -61,74 +114,11 @@ fault confirmed). A read that cannot dispatch is recorded uninvestigable, never 
 and an investigation that runs out of leads ends honestly rather than inventing one. The
 loop is bounded by an iteration cap.
 
-## Prerequisites
-
-The fast checks need nothing but uv. The live agent needs an API key. Each demo target
-needs local infrastructure, which the bring-up scripts create if it is missing.
-
-| To run | Requires |
-|---|---|
-| `make check` (fast deterministic tests) | [uv](https://docs.astral.sh/uv/) and Python 3.12+ |
-| the agent on any surface | the above, plus an API key for an OpenAI-compatible endpoint |
-| the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH); macOS only |
-| the `cluster` and `telemetry` demos | a running Docker engine (OrbStack provides one), [kind](https://kind.sigs.k8s.io/), and `kubectl` |
-
-On Linux, skip the host demo and use the cluster, telemetry, or localhost surfaces.
-
-Ansible and the `kubernetes` client are installed by `uv sync`. The `kubernetes.core`
-Ansible collection is installed by `scripts/cluster-up.sh` when you bring the cluster
-up. You do not install them separately.
-
-## Install
-
-```
-uv sync
-```
-
-Put an API key in a `.env` file at the repo root:
-
-```
-OPENAI_API_KEY=sk-...             # the default model is gpt-5.4
-```
-
-The agent is vendor-agnostic: it speaks the OpenAI chat-completions protocol, so any
-compatible endpoint works. `OPENAI_API_KEY` is the only required variable. For a
-different vendor, also set `OPENAI_BASE_URL` (for example `https://openrouter.ai/api/v1`)
-and `SEMLEY_MODEL` (for example `anthropic/claude-sonnet-5`).
-
-## Quick start
-
-The fastest check needs no model and no infrastructure:
-
-```
-make check
-```
-
-To see a real end-to-end investigation without standing up any target, read the
-committed recording at `recordings/host-investigation.txt`. To run one live, pick a
-surface below.
-
 ## Driving the agent
-
-```
-uv run semley --surface host
-```
 
 The banner lists the inventory hosts (or, on the cluster surface, the live namespaces)
 you can name. Describe an incident in plain language. The agent proposes a target and
 scope, waits for you to confirm, then drives the investigation to a conclusion.
-
-```
-semley › the web service on web1 is not responding
-  (proposes target=web1, scope="web service not responding", asks to confirm)
-semley › yes
-  ▸ step triage target=web1 scope=web service not responding hypothesis=...
-  ▸ step read module=ansible.builtin.service_facts args={}
-    read e1 ansible.builtin.service_facts on web1
-  ▸ step read module=ansible.builtin.listen_ports_facts args={}
-    read e2 ansible.builtin.listen_ports_facts on web1
-  ▸ step conclude finding=... cited_evidence=['e1', 'e2']
-```
 
 Reading the stream:
 
@@ -142,6 +132,24 @@ Reading the stream:
 
 After a conclusion, `/playbook` writes the recorded Ansible calls as a standard
 playbook, `/quit` exits, and Tab completes the commands.
+
+## Prerequisites for the demos
+
+The fast checks need nothing but uv. The live agent needs an API key. Each demo target
+needs local infrastructure, which the bring-up scripts create if it is missing.
+
+| To run | Requires |
+|---|---|
+| `make check` (fast deterministic tests) | uv and Python 3.12+ |
+| the agent on any surface | the above, plus an API key for an OpenAI-compatible endpoint |
+| the `host` demo | [OrbStack](https://orbstack.dev/) (it provides the `web1` Linux machine over SSH); macOS only |
+| the `cluster` and `telemetry` demos | a running Docker engine (OrbStack provides one), [kind](https://kind.sigs.k8s.io/), and `kubectl` |
+
+On Linux, skip the host demo and use the cluster, telemetry, or localhost surfaces.
+
+Ansible and the `kubernetes` client are installed by `uv sync`. The `kubernetes.core`
+Ansible collection is installed by `scripts/cluster-up.sh` when you bring the cluster
+up. You do not install them separately.
 
 ## Demos
 
