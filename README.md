@@ -43,6 +43,15 @@ read is a fixed GET template the model cannot alter rather than a read-annotated
 - **Rocannon** reflects the curated Ansible modules into typed, read-only tools,
   attached in-process as the upstream tool server.
 
+Theodosia is the only MCP server the model connects to, and it exposes exactly one
+tool, `step`. Rocannon is not a second server the model picks tools from: it is mounted
+in-process as an upstream that the graph's actions call. So the reflected Ansible
+modules are never tools in the model's view. Each action phase names the modules it
+dispatches (a hypothesis's reads); the model chooses only which governed action to
+take. This is why the model cannot name a module: it has no module list to name from,
+and widening the action space means adding modules to the action phases, not exposing a
+larger tool menu.
+
 The investigation is a hypothesis loop: `triage` fixes the target and scope and
 elects the first hypothesis, `investigate` gathers evidence for it, and the model
 then `conclude`s (confirmed), `refute`s (rule out, re-hypothesize), or `gather`s more.

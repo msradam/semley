@@ -62,6 +62,16 @@ def _control_reads(namespace: str, scope: str) -> list[Read]:
     ]
 
 
+def _control_node_reads(namespace: str, scope: str) -> list[Read]:
+    # A workload can also be stuck because the cluster nodes are under pressure. Read
+    # the pods (for Pending or Evicted status) and the nodes (for memory, disk, and PID
+    # pressure conditions), so the model can tell a workload fault from a cluster one.
+    return [
+        Read("kubernetes.core.k8s_info", {"kind": "Pod", "namespace": namespace}),
+        Read("kubernetes.core.k8s_info", {"kind": "Node"}),
+    ]
+
+
 PROMETHEUS_URL = "http://localhost:9090"
 
 
@@ -102,6 +112,13 @@ WORKLOAD_UNHEALTHY = Hypothesis(
     reads=_control_reads,
 )
 
+NODE_PRESSURE = Hypothesis(
+    name="node_pressure",
+    plane="control",
+    description="workloads are pending or evicted because the nodes are under pressure",
+    reads=_control_node_reads,
+)
+
 TARGET_DOWN = Hypothesis(
     name="target_down",
     plane="observability",
@@ -111,5 +128,11 @@ TARGET_DOWN = Hypothesis(
 
 CATALOG: dict[str, Hypothesis] = {
     h.name: h
-    for h in (SERVICE_DOWN, RESOURCE_EXHAUSTION, WORKLOAD_UNHEALTHY, TARGET_DOWN)
+    for h in (
+        SERVICE_DOWN,
+        RESOURCE_EXHAUSTION,
+        WORKLOAD_UNHEALTHY,
+        NODE_PRESSURE,
+        TARGET_DOWN,
+    )
 }
